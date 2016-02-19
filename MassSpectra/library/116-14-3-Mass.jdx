@@ -1,0 +1,30 @@
+##TITLE=Ethene, tetrafluoro-
+##JCAMP-DX=4.24
+##DATA TYPE=MASS SPECTRUM
+##OWNER=NIST Mass Spectrometry Data Center
+Collection (C) 2014 copyright by the U.S. Secretary of Commerce
+on behalf of the United States of America. All rights reserved.
+##CAS REGISTRY NO=116-14-3
+##$NIST MASS SPEC NO=19857
+##MOLFORM=C2 F4
+##MW=100
+##$NIST SOURCE=MSDC
+##XUNITS=M/Z
+##YUNITS=RELATIVE INTENSITY
+##XFACTOR=1
+##YFACTOR=1
+##FIRSTX=12
+##LASTX=101
+##FIRSTY=771
+##MAXX=101
+##MINX=12
+##MAXY=9999
+##MINY=10
+##NPOINTS=19
+##PEAK TABLE=(XY..XY)
+12,771 13,10 19,140 24,240
+25,10 31,9999 32,100 43,140
+44,10 50,3083 51,60 62,100
+63,10 69,360 70,10 81,7317
+82,140 100,4314 101,100##GROUP=Fluorocarbons
+##END=

@@ -1,0 +1,44 @@
+##TITLE=Salicylic acid
+##JCAMP-DX=5.01
+##DATA TYPE=MASS SPECTRUM
+##DATA CLASS=XYDATA
+##ORIGIN=Kopka J, Max Planck Institute of Molecular Plant Physiology, Department of Molecular Plant Physiology (Prof. Willmitzer L), Am Muehlenberg 1, D-14476 Golm, Germany
+##$CITATION=Schauer N, Steinhauser D, Strelkov S, Schomburg D, Allison G, Moritz T, Lundgren K, Roessner-Tunali U, Forbes MG, Willmitzer L, Fernie AR, Kopka J (2005) FEBS Letters 579, 1332-1337
+##OWNER=Golm Metabolome Database (GMD) http://gmd.mpimp-golm.mpg.de/
+##VERSION= 18/Feb/2016 21:41 dbtest
+##$GMD ANALYTE LINK: http://gmd.mpimp-golm.mpg.de/Spectrums/9ab6740e-e902-4191-9b91-9442be6e5b8f.aspx
+##$GMD MASS SPEC NO ='http://gmd.mpimp-golm.mpg.de/Spectrums/9ab6740e-e902-4191-9b91-9442be6e5b8f.aspx'
+##CAS REGISTRY NO=3789-85-3
+##MOLFORM=C13H22O3Si2
+##MW=282.483
+##$RETENTION INDEX=1507.85
+##$CHROMATOGRAPHY VARIANT=VAR5 ALK: PRED
+##XUNITS=M/Z
+##YUNITS=RELATIVE ABUNDANCE
+##XFACTOR=1
+##YFACTOR=1
+##BP=267
+##FIRSTX=50
+##LASTX=277
+##FIRSTY=3
+##MAXX=277
+##MINX=50
+##MAXY=999
+##MINY=3
+##NPOINTS=60
+##PEAK TABLE=(XY..XY)
+50,3 63,5 64,12 78,3 90,4 
+91,116 92,28 95,9 105,13 109,6 
+111,87 119,5 120,6 121,10 123,4 
+135,132 136,14 137,14 149,111 150,21 
+151,40 163,7 165,4 166,5 168,3 
+175,23 177,8 179,25 181,24 189,16 
+191,17 193,93 194,19 195,12 204,19 
+205,38 207,14 209,152 210,26 211,18 
+217,50 219,6 220,4 223,3 225,8 
+226,3 233,36 234,4 235,4 249,51 
+250,11 251,10 264,4 265,12 267,999 
+268,197 269,85 270,11 275,20 277,4 
+##GROUP=Hydrocarbons
+##END=
+

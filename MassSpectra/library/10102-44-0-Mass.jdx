@@ -1,0 +1,27 @@
+##TITLE=Nitrogen dioxide
+##JCAMP-DX=4.24
+##DATA TYPE=MASS SPECTRUM
+##OWNER=NIST Mass Spectrometry Data Center
+Collection (C) 2014 copyright by the U.S. Secretary of Commerce
+on behalf of the United States of America. All rights reserved.
+##CAS REGISTRY NO=10102-44-0
+##$NIST MASS SPEC NO=82
+##MOLFORM=N O2
+##MW=46
+##$NIST SOURCE=MSDC
+##XUNITS=M/Z
+##YUNITS=RELATIVE INTENSITY
+##XFACTOR=1
+##YFACTOR=1
+##FIRSTX=14
+##LASTX=47
+##FIRSTY=961
+##MAXX=47
+##MINX=14
+##MAXY=9999
+##MINY=10
+##NPOINTS=5
+##PEAK TABLE=(XY..XY)
+14,961 16,2232 30,9999 46,3703
+47,10
+##GROUP=Air##END=

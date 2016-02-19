@@ -1,0 +1,30 @@
+##TITLE=n-Heptafluoropropyl bromide
+##JCAMP-DX=4.24
+##DATA TYPE=MASS SPECTRUM
+##ORIGIN=Thomas J.Bruno
+##OWNER=NIST Mass Spectrometry Data Center
+Collection (C) 2014 copyright by the U.S. Secretary of Commerce
+on behalf of the United States of America. All rights reserved.
+##CAS REGISTRY NO=422-85-5
+##$NIST MASS SPEC NO=215689
+##MOLFORM=C3 Br F7
+##MW=248
+##$NIST SOURCE=MSDC
+##XUNITS=M/Z
+##YUNITS=RELATIVE INTENSITY
+##XFACTOR=1
+##YFACTOR=1
+##FIRSTX=31
+##LASTX=250
+##FIRSTY=9528
+##MAXX=250
+##MINX=31
+##MAXY=9999
+##MINY=210
+##NPOINTS=15
+##PEAK TABLE=(XY..XY)
+31,9528 50,3703 69,9999 79,1391
+81,1571 93,480 100,3533 112,320
+129,4323 131,4373 169,8627 229,320
+231,300 248,210 250,210##GROUP=Fluorocarbons
+##END=

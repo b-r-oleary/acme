@@ -1,0 +1,30 @@
+##TITLE=Butane, decafluoro-
+##JCAMP-DX=4.24
+##DATA TYPE=MASS SPECTRUM
+##OWNER=NIST Mass Spectrometry Data Center
+Collection (C) 2014 copyright by the U.S. Secretary of Commerce
+on behalf of the United States of America. All rights reserved.
+##CAS REGISTRY NO=355-25-9
+##$NIST MASS SPEC NO=11524
+##MOLFORM=C4 F10
+##MW=238
+##$NIST SOURCE=MSDC
+##XUNITS=M/Z
+##YUNITS=RELATIVE INTENSITY
+##XFACTOR=1
+##YFACTOR=1
+##FIRSTX=12
+##LASTX=238
+##FIRSTY=20
+##MAXX=238
+##MINX=12
+##MAXY=9999
+##MINY=10
+##NPOINTS=20
+##PEAK TABLE=(XY..XY)
+12,20 19,10 31,1221 43,20
+50,420 55,10 62,50 69,9999
+74,30 81,80 93,120 100,841
+112,20 119,1832 131,841 150,260
+169,210 181,10 219,260 238,10##GROUP=Fluorocarbons
+##END=

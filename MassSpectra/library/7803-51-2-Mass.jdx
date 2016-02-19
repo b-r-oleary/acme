@@ -1,0 +1,27 @@
+##TITLE=Phosphine
+##JCAMP-DX=4.24
+##DATA TYPE=MASS SPECTRUM
+##OWNER=NIST Mass Spectrometry Data Center
+Collection (C) 2014 copyright by the U.S. Secretary of Commerce
+on behalf of the United States of America. All rights reserved.
+##CAS REGISTRY NO=7803-51-2
+##$NIST MASS SPEC NO=42
+##MOLFORM=H3 P
+##MW=34
+##$NIST SOURCE=MSDC
+##XUNITS=M/Z
+##YUNITS=RELATIVE INTENSITY
+##XFACTOR=1
+##YFACTOR=1
+##FIRSTX=16
+##LASTX=34
+##FIRSTY=50
+##MAXX=34
+##MINX=16
+##MAXY=9999
+##MINY=30
+##NPOINTS=6
+##PEAK TABLE=(XY..XY)
+16,50 17,30 31,3213 32,1271
+33,3313 34,9999
+##END=

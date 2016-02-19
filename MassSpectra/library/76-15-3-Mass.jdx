@@ -1,0 +1,31 @@
+##TITLE=Pentafluoroethyl chloride
+##JCAMP-DX=4.24
+##DATA TYPE=MASS SPECTRUM
+##OWNER=NIST Mass Spectrometry Data Center
+Collection (C) 2014 copyright by the U.S. Secretary of Commerce
+on behalf of the United States of America. All rights reserved.
+##CAS REGISTRY NO=76-15-3
+##$NIST MASS SPEC NO=5209
+##MOLFORM=C2 Cl F5
+##MW=154
+##$NIST SOURCE=MSDC
+##XUNITS=M/Z
+##YUNITS=RELATIVE INTENSITY
+##XFACTOR=1
+##YFACTOR=1
+##FIRSTX=30
+##LASTX=137
+##FIRSTY=130
+##MAXX=137
+##MINX=30
+##MAXY=9999
+##MINY=20
+##NPOINTS=24
+##PEAK TABLE=(XY..XY)
+30,130 31,3373 35,230 36,80
+37,70 38,30 40,50 43,50
+47,160 49,50 50,931 58,40
+60,30 62,20 68,90 69,5205
+70,50 85,9999 87,3263 88,40
+100,300 119,5645 135,2372 137,771
+##GROUP=Hydrocarbons##END=

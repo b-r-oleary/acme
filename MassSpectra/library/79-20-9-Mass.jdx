@@ -1,0 +1,33 @@
+##TITLE=Acetic acid, methyl ester
+##JCAMP-DX=4.24
+##DATA TYPE=MASS SPECTRUM
+##ORIGIN=NIST Mass Spectrometry Data Center, 1998.
+##OWNER=NIST Mass Spectrometry Data Center
+Collection (C) 2014 copyright by the U.S. Secretary of Commerce
+on behalf of the United States of America. All rights reserved.
+##CAS REGISTRY NO=79-20-9
+##$NIST MASS SPEC NO=291292
+##MOLFORM=C3 H6 O2
+##MW=74
+##$NIST SOURCE=MSDC
+##XUNITS=M/Z
+##YUNITS=RELATIVE INTENSITY
+##XFACTOR=1
+##YFACTOR=1
+##FIRSTX=12
+##LASTX=76
+##FIRSTY=10
+##MAXX=76
+##MINX=12
+##MAXY=9999
+##MINY=10
+##NPOINTS=25
+##PEAK TABLE=(XY..XY)
+12,10 13,30 14,120 15,650
+16,10 25,10 26,40 27,40
+29,680 30,90 31,190 33,10
+40,20 41,150 42,1250 43,9999
+44,360 45,180 56,10 59,1120
+60,30 73,20 74,2530 75,100
+76,10
+##GROUP=Hydrocarbons##END=

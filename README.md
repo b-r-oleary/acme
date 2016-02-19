@@ -38,7 +38,7 @@ This is my some analysis code for scans taken with the white light interferomete
 
 - `InterferometerData`: a class used to import and analyze interferometer scans.
 - `InterferometerMap`: a class that fits a series of interferometer scans to a 2D polynomial to obtain a 2D map.
-- 
+
 The data is kept in `./MIRGInterferometer/data`, and output plots are saved to `./MIRGInterferometer/outputs`.
 
 ## MassSpectra

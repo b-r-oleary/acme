@@ -145,8 +145,10 @@ class MassSpectrumLibrary(object):
             model = np.zeros(len(masses))
             for x, y in zip(X, Y):
                 model[np.where(masses == x)] = y
-            model = model / np.sum(model)
-            models[k] = model
+            s = np.sum(model)
+            if s != 0:
+                model = model / s
+                models[k] = model
         return models
             
     def save_library(self):
@@ -253,7 +255,7 @@ class MassSpectrum(object):
     """
     
     def __init__(self, path, background_region=4, 
-                 p_detection=.01, title=None, discard_beginning=1,
+                 p_detection=.01, title=None, discard_beginning=2,
                  auto_fit=True, library=None):
         """
         perform background subtraction over the last *background_region* amus
@@ -404,7 +406,8 @@ class MassSpectrum(object):
         while True:
             regr = statfunctions.LinearRegression(models.values(), y, dy, 
                                                   renormalize_error=renormalize_error, 
-                                                  coefficient_names=models.keys())
+                                                  coefficient_names=models.keys(),
+                                                  coefficient_units=[self.units]*len(models))
             coefficients = regr.get_coefficients()
             statistically_significant = list((coefficients['p(zero)'] <= p_cutoff)
                                                      & (coefficients['value'] > 0))
@@ -412,6 +415,7 @@ class MassSpectrum(object):
             if sum(statistically_significant) == len(statistically_significant):
                 break
             elif sum(statistically_significant) == 0:
+                print models
                 raise RuntimeError('none of the models fit sufficiently well to merit a fit.')
             else:
                 models = {models.keys()[i]: models[models.keys()[i]] 

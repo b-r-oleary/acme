@@ -43,18 +43,18 @@ def load(filename=None, directory='./'):
                                file_extensions=['pkl'],
                                recursive_search=True)
         files = pd.Series(files)
-        print files
+        print(files)
         index = input("""input an integer corresponding to the file that you would like to load: """)
         filename = files[index]
     with open(filename, 'rb') as f:
         output = pickle.load(f)
-    print 'loaded: ' + filename
+    print('loaded: ' + filename)
     return output
         
 def save(obj, filename):
     with open(filename, 'wb') as f:
         pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
-    print 'saved: ' + filename
+    print('saved: ' + filename)
     return
 
 def time_string_to_seconds(time):
@@ -309,7 +309,7 @@ class TimeSeriesArray(object):
 
         with open(filename, 'wb') as f:
             f.write(output)
-        print 'saved: ' + filename
+        print('saved: ' + filename)
         return
     
 class DatabaseAccess(object):
@@ -338,7 +338,7 @@ class DatabaseAccess(object):
             connections[database]=conn
             cursor = conn.cursor()
             cursors[database]=cursor
-            print database + ' connection open'
+            print(database + ' connection open')
 
         self.connections = connections
         self.cursors     = cursors
@@ -359,7 +359,7 @@ class DatabaseAccess(object):
                 self.connections[key].close()
             except:
                 pass
-        print 'database connection closed'
+        print('database connection closed')
         
     def logging_channels(self, update=False):
         if not(update):

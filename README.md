@@ -59,6 +59,10 @@ This is a repository of tools used to perform calculations with diatomic molecul
 - `matrix_elements.py`: which has some function definitions for calculating matrix elements (Mostly from chapter 5 of Brown and Carrington)
 - `molecule.py`: which introduces a `State` class that describes a molecular electronic state, and a `Molecule` class that contains a list of States and methods to evaluate transtion frequencies and plot energy level diagrams.
 
+## DatabaseAccess
+
+This is a repository of tools for accessing the ACME database. This introduces the database object `DatabaseAccess` that is built on top of a `pyodbc` connection. Data can be easily extracted and is put into `TimeSeriesArray` objects which enable easy plotting and saving.
+
 ## SymbolicManipulation
 
 This is a repository for add-ons to `sympy` a symbolic manipulation package for python. The file `./SymbolicManipulation/code/sympy_plotting.py` contains two methods `plots` and `manipulate` that extends the sympy plotting functionality to include a mathematica-like manipulate capabilities within an ipython notebook.

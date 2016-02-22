@@ -1,5 +1,5 @@
 import sys
-sys.path.append('C:/Users/Brendon/Documents/PythonScripts/Jupyter/Research/Statistics/code')
+sys.path.append('../Statistics/code')
 
 import matplotlib.pyplot as plt
 import seaborn as sns

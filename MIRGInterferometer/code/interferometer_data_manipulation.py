@@ -1,5 +1,5 @@
 import sys
-sys.path.append('C:/Users/Brendon/Documents/PythonScripts/Jupyter/Research/Statistics/code')
+sys.path.append('../Statistics/code')
 from statfunctions import *
 
 import re

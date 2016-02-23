@@ -312,6 +312,120 @@ class TimeSeriesArray(object):
         print('saved: ' + filename)
         return
     
+
+class TimeSeriesStates(object):
+    
+    def __init__(self, t, control_id, state_id, 
+                 controls_list, states_list, title=None):
+    
+        controls_list = controls_list[controls_list['LogControlID'].isin(list(set(control_id)))]
+        new_controls_list = controls_list.set_index('LogControlID')
+        new_controls_list['LogControlName'] = controls_list.index
+        controls_list = {i: new_controls_list.T[i] for i in new_controls_list.index}
+        for k, v in controls_list.items():
+            v['LogControlID'] = k
+            controls_list[k] = v
+        
+        states_list   = states_list[states_list['LogControlStateID'].isin(list(set(state_id)))]
+        new_states_list   = states_list.set_index('LogControlStateID')
+        new_states_list['LogControlStateName'] = states_list.index
+        states_list   = {i: new_states_list.T[i] for i in new_states_list.index}
+        for k, v in states_list.items():
+            v['LogControlStateID'] = k
+            states_list[k] = v
+        
+        control      = [controls_list[c] for c in control_id]
+        state        = [states_list[s] for s in state_id]
+        notification = [c['LogControlName'] + ' ' + s['NotificationText'] for c, s in zip(control, state)]
+        
+        self.t            = t
+        self.control_id   = control_id
+        self.control      = control
+        self.state_id     = state_id
+        self.state        = state
+        self.notification = notification
+        
+        self.states_list   = states_list
+        self.controls_list = controls_list
+        
+        self.title = title
+        
+    def __len__(self):
+        return len(self.t)
+        
+    def get_notifications(self, fmt=''):
+        return [t.strftime('%c') + ' - ' + n for t, n in zip(self.t, self.notification)]
+    
+    def get_discrete_waveform(self, control_id):
+        
+        inds = [i for i in range(len(self.control_id)) 
+                   if self.control_id[i] == control_id]
+        
+        t = [self.t[i] for i in inds]
+        state_ids = list(set([self.state_id[i] for i in inds]))
+        if len(state_ids) == 0:
+            x = np.array([])
+        elif len(state_ids) == 1:
+            x = np.ones(len(inds)) * .5
+        else:
+            x = np.array([state_ids.index(self.state_id[i])/(len(state_ids) - 1) for i in inds])
+        
+        labels = [self.states_list[i]['LogControlStateName'] for i in state_ids]
+        name = self.controls_list[control_id]['LogControlName']
+        
+        return t, x, name, labels
+    
+    def plot(self, size=.8, wrap_length=16, 
+             label_fontsize=10, name_fontsize=14, title=None):
+        counter = 0
+        labels_list = []
+        labels_pos  = []
+        names = []
+        colors = []
+        for i in self.controls_list.keys():
+            t, x, name, labels = self.get_discrete_waveform(i)
+            if len(t) > 0:
+                line = plt.step(t, size * x + counter + (1-size)/2.0, '.', 
+                                label=name, markerfacecolor='w', markeredgewidth=.5)
+                colors.append(line[0].get_color())
+                labels_list = labels_list + ['\n'.join(wrap(l, wrap_length)) for l in labels]
+                if len(labels) > 1:
+                    labels_pos = labels_pos + list(np.linspace(0, 1, len(labels)) * size + counter + (1-size)/2.0)
+                else:
+                    labels_pos = labels_pos + [.5 + counter]
+                names.append(name)
+                counter += 1
+            
+        plt.yticks(labels_pos, labels_list, fontsize=label_fontsize)
+        plt.ylim([0, counter])
+        
+        self._plot_formatting()
+        
+        xlim = plt.gca().get_xlim()
+        rangex = (xlim[1] - xlim[0])/40.0
+        xlim = [xlim[0] - rangex, xlim[1] + rangex]
+        plt.xlim(xlim)
+        x_pos = xlim[1] + rangex
+        for i in range(len(names)):
+            plt.text(x_pos, i + .5, names[i], color=colors[i], 
+                     verticalalignment='center', fontsize=name_fontsize)
+        if self.title is not None:
+            plt.title(self.title + ' - Logged State Changes')
+            
+        return
+    
+    def _plot_formatting(self, fmt='%m/%d %H:%M'):
+        plt.xlabel('time')
+        ax = plt.gca()
+        hfmt = dates.DateFormatter(fmt)
+        ax.xaxis.set_major_formatter(hfmt)
+        fig = plt.gcf()
+        fig.autofmt_xdate()
+        sns.despine(left=True, top=True, right=True)
+        
+        return
+    
+    
 class DatabaseAccess(object):
     
     def __init__(self, server='25.70.187.150',
@@ -401,7 +515,7 @@ class DatabaseAccess(object):
             table = table.set_index(index)
         return table
     
-    def logging_channels(self, update = False):
+    def logging_channels(self, update=False):
         if not(update):
             try:
                 return self._logging_channels
@@ -411,6 +525,16 @@ class DatabaseAccess(object):
         table = self.get_table('LogChannelDetails', index='LogChannelName')
         self._logging_channels = table
         return self._logging_channels
+    
+    def logging_controls(self, update=False):
+        if not(update):
+            try:
+                return self._logging_controls
+            except:
+                pass
+        table = self.get_table('LogControlDetails', index='LogControlName')
+        self._logging_controls = table
+        return table
     
     def logging_groups(self, update=False):
         if not(update):
@@ -422,10 +546,37 @@ class DatabaseAccess(object):
         self._logging_groups = table
         return self._logging_groups
     
+    def control_states(self, update=False):
+        if not(update):
+            try:
+                return self._control_states
+            except:
+                pass
+        table = self.get_table('LogControlStates', index='LogControlStateName')
+        self._control_states = table
+        return table
+    
+    def control_name(self, control_id):
+        table = self.logging_controls()
+        return table[table['LogControlID']==control_id].index[0]
+    
+    def control_id(self, control_name):
+        table = self.logging_controls()
+        return table.T[control_name]['LogControlID']
+    
     def channel_properties(self, channel_name):
         table = self.logging_channels().T[channel_name]
         table['LogChannelName'] = channel_name
         return table
+    
+    def control_properties(self, control_name):
+        table = self.logging_controls().T[control_name]
+        table['LogControlName'] = control_name
+        return table
+    
+    def class_controls(self, class_name):
+        table = self.logging_controls()
+        return table[table['LogChannelClassName'] == class_name]
     
     def group_properties(self, group_name):
         table = self.logging_groups().T[group_name]
@@ -501,8 +652,69 @@ class DatabaseAccess(object):
         rows = cursor.fetchall()
         
         timestamps = [row.TimeStamp for row in rows]
-        data       =[row.Data for row in rows]
+        data       = [row.Data for row in rows]
         
         time_series = TimeSeries(t=timestamps, x=data, channel=channel)
         
         return time_series
+    
+    def get_control_data(self,
+                         control=None, group=None,
+                         start_time=None, end_time=None,
+                         duration='1 hour', title=None):
+
+        start_time, end_time = get_time_range(duration=duration, 
+                                              start_time=start_time, 
+                                              end_time=end_time)
+
+        time_format = '%Y-%m-%dT%X'
+
+        start_time_string = start_time.strftime(time_format)
+        end_time_string   = end_time.strftime(time_format)
+
+        control_ids = []
+
+        if control is not None:
+            if isinstance(control, (str, int)):
+                control = [control]
+
+            for c in control:
+                if isinstance(c, int):
+                    control_ids.append(c)
+                elif isinstance(c, str):
+                    control_ids.append(int(self.control_id(c)))
+                else:
+                    raise IOError('invalid input for channel')
+
+        if group is not None:
+            if isinstance(group,(str, int)):
+                if title is None and isinstance(group, str):
+                    title = group
+                group = [group]
+
+            for g in group:
+                if isinstance(g, str):
+                    control_ids   = control_ids + list(self.class_controls(g)['LogControlID'])
+                else:
+                    raise IOError('group must correspond to LogChannelClassName')
+
+
+        command = ("""
+            SELECT TimeStamp, LogControlID, LogControlStateID
+            FROM LogControlStateData
+            WHERE TimeStamp >= '""" + start_time_string + """'
+            AND TimeStamp <= '""" + end_time_string + """'
+            """)
+
+        if len(control_ids) > 0:
+            control_string = control_string = '(' + ', '.join(["'" + str(c) + "'" for c in control_ids]) + ')'
+            command = command + "AND LogControlID IN " + control_string + '\n'
+
+        cursor = self.cursors['LoggingLogData']
+        cursor.execute(command)
+        rows = cursor.fetchall()
+        TimeStamp    = [row.TimeStamp for row in rows]
+        LogControlID = [row.LogControlID for row in rows]
+        LogControlStateID = [row.LogControlStateID for row in rows]
+        return TimeSeriesStates(TimeStamp, LogControlID, LogControlStateID,
+                                self.logging_controls(), self.control_states(), title=title)

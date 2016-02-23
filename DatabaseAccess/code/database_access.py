@@ -350,13 +350,32 @@ class TimeSeriesStates(object):
         
         self.title = title
         
+    def get_controls(self):
+        return [v['LogControlName'] for v in self.controls_list.values()]
+        
+    def __str__(self):
+        return 'TimeSeriesStates object inluding controls: ' + str(self.get_controls())
+    
+    def __repr__(self):
+        return str(self)
+        
     def __len__(self):
         return len(self.t)
+    
+    def __getitem__(self, i):
+        return self.get_discrete_waveform(i)
         
     def get_notifications(self, fmt=''):
         return [t.strftime('%c') + ' - ' + n for t, n in zip(self.t, self.notification)]
     
     def get_discrete_waveform(self, control_id):
+        if isinstance(control_id, str):
+            for k, v in self.controls_list.items():
+                if v['LogControlName'] == control_id:
+                    control_id = k
+                    break
+            if isinstance(control_id, str):
+                raise IOError('please enter a valid control id or control name')
         
         inds = [i for i in range(len(self.control_id)) 
                    if self.control_id[i] == control_id]
@@ -368,7 +387,7 @@ class TimeSeriesStates(object):
         elif len(state_ids) == 1:
             x = np.ones(len(inds)) * .5
         else:
-            x = np.array([state_ids.index(self.state_id[i])/(len(state_ids) - 1) for i in inds])
+            x = np.array([state_ids.index(self.state_id[i])/float(len(state_ids) - 1) for i in inds])
         
         labels = [self.states_list[i]['LogControlStateName'] for i in state_ids]
         name = self.controls_list[control_id]['LogControlName']
@@ -376,7 +395,8 @@ class TimeSeriesStates(object):
         return t, x, name, labels
     
     def plot(self, size=.8, wrap_length=16, 
-             label_fontsize=10, name_fontsize=14, title=None):
+             label_fontsize=10, name_fontsize=14, title=None,
+             show_points=True):
         counter = 0
         labels_list = []
         labels_pos  = []
@@ -385,8 +405,12 @@ class TimeSeriesStates(object):
         for i in self.controls_list.keys():
             t, x, name, labels = self.get_discrete_waveform(i)
             if len(t) > 0:
-                line = plt.step(t, size * x + counter + (1-size)/2.0, '.', 
-                                label=name, markerfacecolor='w', markeredgewidth=.5)
+                x = size * x + counter + (1-size)/2.0
+                if show_points:
+                    line = plt.step(t, x, '.', 
+                                    label=name, markerfacecolor='w', markeredgewidth=.5)
+                else:
+                    line = plt.step(t, x, label=name)
                 colors.append(line[0].get_color())
                 labels_list = labels_list + ['\n'.join(wrap(l, wrap_length)) for l in labels]
                 if len(labels) > 1:
@@ -422,7 +446,29 @@ class TimeSeriesStates(object):
         fig = plt.gcf()
         fig.autofmt_xdate()
         sns.despine(left=True, top=True, right=True)
-        
+        return
+    
+    def format_filename(self, filename=None, file_extension='pkl'):
+        if filename is None:
+            if self.title is None:
+                title = 'Control State Log'
+            else:
+                title = self.title
+            filename = ('./' + 
+                        create_filename(self.t[0], self.t[-1], [self.title])
+                        + '.' + file_extension)
+            
+        directory, f = os.path.split(filename)
+        dirs = os.listdir(directory)
+        if 'data' in dirs:
+            if directory[-1] not in ['/','\\']:
+                directory = directory + '/'
+            filename = directory + 'data/' + f
+        return filename
+    
+    def save(self, filename=None):
+        filename = self.format_filename(filename, file_extension='pkl')
+        save(self, filename)
         return
     
     
@@ -514,6 +560,26 @@ class DatabaseAccess(object):
         if index is not None:
             table = table.set_index(index)
         return table
+    
+    def sql_command(self, command, database=None, output=True, index=None):
+        if database is None:
+            database = self.cursors.keys()[0]
+        cursor = self.cursors[database]
+        cursor.execute(command)
+        if output:
+            rows = cursor.fetchall()
+            try:
+                row = rows[0]
+                names = [item[0] for item in row.cursor_description]
+                output = {names[i]: [row[i] for row in rows] for i in range(len(names))}
+                output = pd.DataFrame(output)
+                if index is not None:
+                    output = output.set_index(index)
+                return output
+            except:
+                raise IOError('error on outputting data')
+        else:
+            return None
     
     def logging_channels(self, update=False):
         if not(update):
@@ -672,10 +738,16 @@ class DatabaseAccess(object):
         start_time_string = start_time.strftime(time_format)
         end_time_string   = end_time.strftime(time_format)
 
+        if control is None and group is None:
+            if title is None:
+                title = 'All Controls'
+        
         control_ids = []
 
         if control is not None:
             if isinstance(control, (str, int)):
+                if (title is None and isinstance(group, str)) and (group is None):
+                    title = control
                 control = [control]
 
             for c in control:
@@ -688,7 +760,7 @@ class DatabaseAccess(object):
 
         if group is not None:
             if isinstance(group,(str, int)):
-                if title is None and isinstance(group, str):
+                if (title is None and isinstance(group, str)) and (control is None):
                     title = group
                 group = [group]
 

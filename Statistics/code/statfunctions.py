@@ -364,7 +364,7 @@ def split_dataset(data, split_fraction=.75):
     
     return X, Y, dY
 
-def linear_regression(x_functions, y, dy, return_c=False):
+def linear_regression(x_functions, y, dy=None, weights=None, return_c=False):
     """
     this is the core linear regression function
     """
@@ -373,9 +373,14 @@ def linear_regression(x_functions, y, dy, return_c=False):
         X = np.array(x_functions)
     else:
         X = x_functions
+    
+    if dy is None and weights is None:
+        raise IOError('you must specify dy or weights')
+    if dy is not None:
+        weights = 1 / dy**2
         
-    c = np.dot(X, y / dy**2)
-    M = np.dot(np.dot(X, np.diag(1/dy**2)), X.T)
+    c = np.dot(X, y * weights)
+    M = np.dot(np.dot(X, np.diag(weights)), X.T)
         
     #take the inverse of the M matrix 
     covariance = np.linalg.inv(M)
@@ -760,7 +765,7 @@ class RegressionModel(object):
     def __repr__(self):
         return str(self)
     
-    def renormalize_error(self):
+    def renormalize_error(self, coefficients=True):
         """
         take all of the fit parameters that are denote variance, and rescale
         by chi^2
@@ -768,16 +773,18 @@ class RegressionModel(object):
         self._renormalize_error = True
         
         if self._state == 'fit':
-            self.dcoefficients *= np.sqrt(self.chi2)
+            if coefficients:
+                self.dcoefficients *= np.sqrt(self.chi2)
+                self.covariance    *= self.chi2
+
             self.dy_est        *= np.sqrt(self.chi2)
-            self.covariance    *= self.chi2
             self.data.dy       *= np.sqrt(self.chi2)
             self.dchi2         /= self.chi2
             self.chi2           = 1
             
         return
     
-    def unnormalize_error(self):
+    def unnormalize_error(self, coefficients=True):
         """
         if the error was previously normalized, it can be renormalized here.
         (the original chi2 is saved in self._chi2)
@@ -785,9 +792,11 @@ class RegressionModel(object):
         self._renormalize_data = False
         
         if self._state == 'fit':
-            self.dcoefficients /= np.sqrt(self._chi2)
+            if coefficients:
+                self.dcoefficients /= np.sqrt(self._chi2)
+                self.covariance    /= self._chi2
+
             self.dy_est        /= np.sqrt(self._chi2)
-            self.covariance    /= self._chi2
             self.data.dy       /= np.sqrt(self._chi2)
             self.dchi2         *= self._chi2
             self.chi2           = self._chi2
@@ -1727,8 +1736,185 @@ class FourierTransform(SineFit1D):
                          x_name=self.x_name, y_name=self.y_name,
                          x_unit=self.x_unit, y_unit=self.y_unit, **kwargs)
         return regr
+    
+
+class KernelEstimator1D(RegressionModel):
+    
+    model_type = 'kernel estimator'
+    
+    def __init__(self, x, y, dy=None, 
+                 width=None, order=None, 
+                 method='quadratic', kernel='normal',
+                 x_name='x', x_unit=None, **kwargs):
+        
+        self.x_unit = str(x_unit)
+        self.x_name = str(x_name)
+        
+        if width is None:
+            base = 3
+            factor = {'smooth': 0, 'linear': 1, 'quadratic':2, 
+                      'polynomial': (order if order is not None else 0),
+                      'cubic': 3, 'constant': 0} 
+            width = (base + factor[method]) * (max(x) - min(x)) / len(x)
+            
+        # this is the polynomial order that is used for polynomial local regression
+        self.order = order
+            
+        #save the model method
+        self.width = width
+        self.kernel = self.get_kernel_function(kernel)
+        self.method = self.get_method_function(method)
+        
+        super(KernelEstimator1D, self).__init__(x, y, dy, **kwargs)
+        
+        if self.auto_fit:
+            self.fit()
+            
+    def evaluate_model(self, x=None):
+        if x is None:
+            x = self.data.x.T
+             
+        y_est  = []
+        dy_est = []
+         
+        i = 0
+        for x_i in x:
+            y_est_i, dy_est_i = self.method(self.kernel(x_i), 
+                                            self.data.x, 
+                                            self.data.y, 
+                                            self.data.dy, 
+                                            i)
+            i += 1
+            
+            y_est.append(y_est_i)
+            dy_est.append(dy_est_i)
+            
+        return np.array(y_est), np.array(dy_est)
+    
+    def fit(self):
+            
+        self.y_est, self.dy_est = self.evaluate_model()
+        
+        self.chi2, self.dchi2 = chi_squared(self.data.y - self.y_est, self.data.dy,
+                                            ddof=self.ddof, subtract_mean=False)
+        
+        self._chi2 = self.chi2 # this is stored so that i can undo a normalization of chi_2 to 1
+        self._dchi2 = self.dchi2
+        
+        self._state = 'fit'
+        
+        if self._renormalize_error:
+            self.renormalize_error()
+            
+        return
+            
+    def get_kernel_function(self, kernel):
+        """
+        returns a kernel function vs x.
+        """
+        
+        u = lambda x: (self.data.x - x) / self.width
+        square = lambda x: (u(x) >= -1) * (u(x) <= 1)
+        
+        if kernel == 'uniform':
+            return lambda x: (1 / 2.) * square(x)
+        elif kernel == 'triangular':
+            return lambda x: (1 - np.abs(u(x))) * square(x)
+        elif kernel in ['epanechnikov', 'quadratic']:
+            return lambda x: (3 / 4.) * (1 - (u(x))**2) * square(x)
+        elif kernel in ['biweight', 'quartic']:
+            return lambda x: (15 / 16.) * (1 - (u(x))**2)**2 * square(x)
+        elif kernel == 'triweight':
+            return lambda x: (35 / 32.) * (1 - (u(x))**2)**3 * square(x)
+        elif kernel == 'tricube':
+            return lambda x: (70 / 81.) * (1 - (np.abs(u(x)))**3)**3 * square(x)
+        elif kernel in ['gaussian', 'normal']:
+            return lambda x: (1 / np.sqrt(2 * np.pi)) * np.exp(-(u(x))**2/2.)
+        elif kernel == 'cosine':
+            return lambda x: (np.pi / 4.) * np.cos((np.pi / 2.) * u(x)) * square(x)
+        elif kernel == 'logistic':
+            return lambda x: 1 / (np.exp(u(x)) + 2 + np.exp(-u(x)))
+        elif kernel == 'silverman':
+            return lambda x: ((1 / 2.) * np.exp(-np.abs(u(x))/np.sqrt(2)) *
+                              np.sin(np.abs(u) / np.sqrt(2) + np.pi / 4.))
+        else:
+            IOError('the kernel type that you requested is invalid.')
+            
+    def get_method_function(self, method):
+        
+        if method in ['smooth', 'constant']:
+            def smooth(k, x, y, dy, i):
+                norm   = np.sum(k / dy**2)
+                y_est  = np.sum(k * y / dy**2) / norm
+                dy_est = np.sqrt(np.sum(k**2 / dy**2)) / norm
+                return y_est, dy_est
+            
+            self.ddof = 1
+            return smooth
+        
+        elif method in ['polynomial', 'linear', 'quadratic', 'cubic']:
+            if method == 'linear':
+                order = 1
+            elif method == 'quadratic':
+                order = 2
+            elif method == 'cubic':
+                order = 3
+            elif method == 'polynomial':
+                if self.order is None:
+                    raise IOError('for polynomial regression, you must enter an order')
+                else:
+                    order = self.order
+            
+            def local_linear_regression(k, x, y, dy, i):
+                
+                x_function  = np.array([np.squeeze(x**j) for j in range(order + 1)])
+                weights     = np.squeeze(dy/np.sqrt(k))
+                
+                coefficients, dcoefficients, covariance = linear_regression(x_function, y, weights)
+                
+                y_est, dy_est = evaluate_linear_regression_model(x_function,
+                                                                 coefficients, 
+                                                                 dcoefficients, 
+                                                                 covariance)
+                
+                return y_est[i], dy_est[i]
+            
+            self.ddof = 1 + order
+            return local_linear_regression
+        
+    def plot_labels(self, which, style='latex'):
+        
+        if style == 'latex':
+            s = lambda i: '\, (\\mathrm{' + str(i) + '})'
+        else:
+            s = lambda i: ' (' + str(i) + ')'
+        
+        if which == 'x':
+            string = self.x_name
+            if self.x_unit != 'None':
+                string = string + s(self.x_unit)
+        elif which == 'y':
+            string = self.y_name
+            if self.y_unit != 'None':
+                string = string + s(self.y_unit)
+        elif which == 'residuals':
+            string = '\\mathrm{residuals}'
+            if self.y_unit != 'None':
+                string = string + s(self.y_unit)
+        else:
+            raise IOError('')
+            
+        if style == 'latex':
+            return '$' + string + '$'
+        else:
+            return string
+        
+    def plot(self, legend=True, chi2=False, **kwargs):
+        return regression_plot(self, legend=legend, 
+                               fit_expression=False, chi2=chi2, **kwargs)
         
         
+
                    
 def regression_plot(regrs, colors=None, y0_line=True, x0_line=False, 
                     legend=False, labels=None, fit_expression=False, chi2=None,
@@ -2015,7 +2201,7 @@ def plot3D(regrs, colors=None, legend=False, labels=None,
         z_2d = np.reshape(z_eval,(N, N))
         dz_2d = np.reshape(dz_eval,(N, N))
                              
-        ax.plot_surface(x_2d, y_2d, z_2d, 
+        ax.plot_surface(x_2d, y_2d, z_2d,
                         rstride=8, 
                         cstride=8, 
                         alpha=alpha_fit, 

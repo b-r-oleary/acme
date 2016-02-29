@@ -289,7 +289,7 @@ class IntegrateSchrodingerEquation(object):
             plt.plot(self.t, w, label=name)
             
         plt.xlabel('time (s)')
-        plt.ylabel('rabi frequency ($2\pi\cdot\mathrm{MHz}$)')
+        plt.ylabel('rabi frequency\n($2\pi\cdot\mathrm{MHz}$)')
         plt.legend(loc='best')
         
     @staticmethod

@@ -16,6 +16,7 @@ namespace ACMENotifications
 {
     class Program
     {
+
         static void Main(string[] args)
         {
             /* open the sql client connection

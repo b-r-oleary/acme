@@ -225,6 +225,7 @@ class MassSpectrumLibrary(object):
         plt.yscale(yscale)
         return
     
+    
 class MassSpectrum(object):
     """
     This object houses a mass spectrum and enables analysis of the mass spectrum.
@@ -256,43 +257,39 @@ class MassSpectrum(object):
     
     def __init__(self, path, background_region=4, 
                  p_detection=.01, title=None, discard_beginning=2,
-                 auto_fit=True, library=None):
+                 auto_fit=True, library=None, rga=None, p_fit_cutoff=.1,
+                 renormalize_error=True):
         """
         perform background subtraction over the last *background_region* amus
         """
-        
+        # create an automated title is one is not provided.
         if title is None:
             title = os.path.split(path)[-1]
             title = 'RGA Mass Spectrum - ' + title.split('.')[0]
+            
         self.title = title
-        
         self.path = path
-        with open(path) as xml:
-            doc = xmltodict.parse(xml.read())
+        self.background_region = background_region
+        self.discard_beginning = discard_beginning
         
-        doc = doc['Data']
+        # determine rga from file extension if not provided
+        if rga is None:
+            mapping = {'xml':'extorr', 'txt':'srs'}
+            file_extension = path.split('.')[-1]
+            if file_extension in mapping.keys():
+                rga = mapping[file_extension]
+            else:
+                raise IOError('unrecognized file format - please specify the RGA type')
+           
+        #import the data
+        if rga == 'extorr':
+            self._import_from_extorr_format()
+        elif rga == 'srs':
+            self._import_from_srs_format()
+        else:
+            raise IOError('RGA format is not recognized')
         
-        self.pirani_pressure = float(doc['@PiraniPressure'])
-        self.total_pressure  = float(doc['@TotalPressure'])
-        self.units           = doc['@Units']
-        
-        self.samples_per_amu = int(doc['@SamplesPerAMU'])
-        self.high_mass       = float(doc['@HighMass'])
-        self.low_mass        = float(doc['@LowMass'])
-        
-        self.pressure        = np.array([float(v.values()[0]) for v in doc['Sample']])
-        
-        self.background      = np.mean(self.pressure[-5 * self.samples_per_amu: -1])
-        self.dbackground     = np.std(self.pressure[-5 * self.samples_per_amu: -1])
-        
-        self.pressure        = self.pressure - self.background
-        
-        self.mass            = np.array(range(len(self.pressure))) / float(self.samples_per_amu)
-        self.mass            = self.mass - np.mean(self.mass[0:self.samples_per_amu]) +self.low_mass
-        
-        self.pressure = self.pressure[discard_beginning * self.samples_per_amu:]
-        self.mass     = self.mass[discard_beginning * self.samples_per_amu:]
-        self.low_mass = self.low_mass + discard_beginning
+        self.rga = rga
         
         M = np.reshape(self.mass,(self.high_mass - self.low_mass + 1, self.samples_per_amu))
         P = np.reshape(self.pressure,(self.high_mass - self.low_mass + 1, self.samples_per_amu))
@@ -312,7 +309,6 @@ class MassSpectrum(object):
         
         self.fit_mass = self.discrete_mass
         self.fit_pressure = np.array([sum(self.lineshape * p)/sum(self.lineshape**2) for p in P])
-        #self.fit_pressure = np.array([sum(self.lineshape)/sum(self.lineshape**2/p) for p in P])
         
         self.fit_to_lineshape = np.reshape(np.array([self.fit_pressure[i] * self.lineshape 
                                               for i in range(len(self.fit_pressure))]),
@@ -330,11 +326,93 @@ class MassSpectrum(object):
         self.models = None
         self.fit = None
         if auto_fit and (library is not None):
-            self.fit_to_library(library)
+            self.fit_to_library(library, p_cutoff=p_fit_cutoff, 
+                                renormalize_error=renormalize_error)
         
+    def _import_from_extorr_format(self):
+        with open(self.path) as xml:
+            doc = xmltodict.parse(xml.read())
         
-    def plot(self, scan=True, fit=True, bar=True, peaks=True, yscale='log', color=None, label=True):
-        legend = True
+        doc = doc['Data']
+        
+        #self.pirani_pressure = float(doc['@PiraniPressure'])
+        #self.total_pressure  = float(doc['@TotalPressure'])
+        self.units           = doc['@Units']
+        
+        self.samples_per_amu = int(doc['@SamplesPerAMU'])
+        self.high_mass       = float(doc['@HighMass'])
+        self.low_mass        = float(doc['@LowMass'])
+        
+        self.pressure        = np.array([float(v.values()[0]) for v in doc['Sample']])
+        
+        self.background      = np.mean(self.pressure[-5 * self.samples_per_amu: -1])
+        self.dbackground     = np.std(self.pressure[-5 * self.samples_per_amu: -1])
+        
+        self.pressure        = self.pressure - self.background
+        
+        self.mass            = np.array(range(len(self.pressure))) / float(self.samples_per_amu)
+        self.mass            = self.mass - np.mean(self.mass[0:self.samples_per_amu]) +self.low_mass
+        
+        self.pressure = self.pressure[self.discard_beginning * self.samples_per_amu:]
+        self.mass     = self.mass[self.discard_beginning * self.samples_per_amu:]
+        self.low_mass = self.low_mass + self.discard_beginning
+        return
+    
+    def _import_from_srs_format(self):
+
+        with open(self.path, 'rb') as f:
+            data = f.readlines()
+
+        def find_and_extract(data, prefix):
+            for line in data:
+                result = re.findall(r'^' + prefix + ',\s(.+?)[\s\r\n|,]', 
+                                   line)
+                if len(result) > 0:
+                    return result[0]
+            return None
+
+        self.samples_per_amu = int(find_and_extract(data, 'Points Per AMU'))
+        self.units           = find_and_extract(data, 'Units')
+
+        def get_pressure_data(data):
+            counter = 0
+            for line in data:
+                counter += 1
+                if line == '\r\n':
+                    if data[counter] == '\r\n':
+                        break
+            counter += 1
+
+            m = []
+            p = []
+            for i in range(counter, len(data)):
+                line = data[i].split(',')
+                m.append(float(line[0]))
+                p.append(float(line[1]))
+
+            return np.array(m), np.array(p)
+
+        self.mass, self.pressure = get_pressure_data(data)
+
+        inds = np.where(np.logical_and(
+                        self.mass > int(self.discard_beginning) + .5,
+                        self.mass <= np.floor(max(self.mass) - .5) + .5))
+
+        self.pressure = self.pressure[inds]
+        self.mass     = self.mass[inds]
+
+        self.background      = np.mean(self.pressure[-self.background_region * self.samples_per_amu:])
+        self.dbackground     = (np.std(self.pressure[-self.background_region * self.samples_per_amu:])
+                                                        /np.sqrt(self.samples_per_amu * self.background_region))
+
+        self.pressure        = self.pressure - self.background
+
+        self.high_mass  = np.floor(max(self.mass))
+        self.low_mass = np.ceil(min(self.mass))
+        return
+        
+    def plot(self, scan=True, fit=True, bar=True, peaks=True, 
+             yscale='log', color=None, label=True, full_xlim=False, legend=True):
         if label is None:
             label = [None] * 4
             legend =False
@@ -360,11 +438,12 @@ class MassSpectrum(object):
         ylim[0] = self.dbackground/4.0
         plt.ylim(ylim)
         
-        xlim = [min(self.peaks_mass), max(self.peaks_mass)]
-        x_range = xlim[1] - xlim[0]
-        xlim = [max([.5, xlim[0] - x_range/10.0]), 
-                min([xlim[1] + x_range/10.0, max(self.mass)])]
-        plt.xlim(xlim)
+        if not(full_xlim):
+            xlim = [min(self.peaks_mass), max(self.peaks_mass)]
+            x_range = xlim[1] - xlim[0]
+            xlim = [max([.5, xlim[0] - x_range/10.0]), 
+                    min([xlim[1] + x_range/10.0, max(self.mass)])]
+            plt.xlim(xlim)
         
         plt.title(self.title)
         if legend:
@@ -379,13 +458,13 @@ class MassSpectrum(object):
         plt.ylabel('signal (arb)')
         plt.xlim([min(self.lineshape_mass), max(self.lineshape_mass)])
         
-    def print_report(self, **kwargs):
+    def print_report(self, full_xlim=False, legend=True, **kwargs):
         
         if self.fit is not None:
             plt.subplot(2,1,1)
-            self.plot(**kwargs)
+            self.plot(full_xlim=full_xlim, legend=legend, **kwargs)
             plt.subplot(2,1,2)
-            self.plot_fit()
+            self.plot_fit(full_xlim=full_xlim, legend=legend)
             plt.tight_layout()
         else:
             self.plot(**kwargs)
@@ -429,7 +508,7 @@ class MassSpectrum(object):
         
         return
         
-    def plot_fit(self):
+    def plot_fit(self, full_xlim=False, legend=True):
         if self.fit is None:
             raise RuntimeError('you must first fit to a model before plotting')
             
@@ -459,8 +538,9 @@ class MassSpectrum(object):
             counter += 1
         plt.errorbar(self.peaks_mass, self.peaks_pressure, self.peaks_dpressure,
                      fmt='.k', label='data')
-
-        plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+        
+        if legend:
+            plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
         plt.yscale('log')
 
         plt.xlabel('mass/charge (amu)')
@@ -471,10 +551,12 @@ class MassSpectrum(object):
         ylim[0] = baseline
         _ = plt.ylim(ylim)
         
-        xlim = [min(self.peaks_mass), max(self.peaks_mass)]
-        x_range = xlim[1] - xlim[0]
-        xlim = [max([.5, xlim[0] - x_range/10.0]), min([xlim[1] + x_range/10.0, max(self.mass)])]
-        plt.xlim(xlim)
+        if not(full_xlim):
+            xlim = [min(self.peaks_mass), max(self.peaks_mass)]
+            x_range = xlim[1] - xlim[0]
+            xlim = [max([.5, xlim[0] - x_range/10.0]), min([xlim[1] + x_range/10.0, max(self.mass)])]
+
+            plt.xlim(xlim)
         
         return
     

@@ -112,10 +112,17 @@ def get_time_range(duration='1 hour',
         
     return start_time, end_time
 
-def create_filename(start_time, end_time, channels, fmt='%Y-%m-%dT%H-%M'):
-    string = '_'.join([start_time.strftime(fmt), 
-                       end_time.strftime(fmt)]
-                       + channels)
+def create_filename(start_time=None, end_time=None, channels=None, fmt='%Y-%m-%dT%H-%M'):
+    string = []
+    if start_time is not None:
+        string.append(start_time.strftime(fmt))
+    if end_time is not None:
+        string.append(end_time.strftime(fmt))
+    if channels is not None:
+        if isinstance(channels, str):
+            channels = [channels]
+        string = string + channels
+    string = '_'.join(string)
     return '_'.join(string.split(' '))
 
 

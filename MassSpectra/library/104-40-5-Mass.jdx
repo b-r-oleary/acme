@@ -1,0 +1,30 @@
+##TITLE=4-Nonylphenol
+##JCAMP-DX=4.24
+##DATA TYPE=MASS SPECTRUM
+##ORIGIN=J.Freeman
+##OWNER=NIST Mass Spectrometry Data Center
+Collection (C) 2014 copyright by the U.S. Secretary of Commerce
+on behalf of the United States of America. All rights reserved.
+##CAS REGISTRY NO=104-40-5
+##$NIST MASS SPEC NO=280310
+##MOLFORM=C15 H24 O
+##MW=220
+##$NIST SOURCE=MSDC
+##XUNITS=M/Z
+##YUNITS=RELATIVE INTENSITY
+##XFACTOR=1
+##YFACTOR=1
+##FIRSTX=55
+##LASTX=221
+##FIRSTY=90
+##MAXX=221
+##MINX=55
+##MAXY=9999
+##MINY=60
+##NPOINTS=15
+##PEAK TABLE=(XY..XY)
+55,90 65,60 77,380 78,100
+79,80 91,100 94,120 107,9999
+108,981 109,80 120,150 121,70
+133,70 220,1892 221,320
+##GROUP=Hydrocarbons##END=

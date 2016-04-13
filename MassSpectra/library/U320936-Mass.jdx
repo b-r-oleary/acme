@@ -1,0 +1,35 @@
+##TITLE=Sarcosine, n-pentafluoropropionyl-, propyl ester
+##JCAMP-DX=4.24
+##DATA TYPE=MASS SPECTRUM
+##ORIGIN=Zaikin V.G., TIPS RAS, Moscow, Russia
+##OWNER=NIST Mass Spectrometry Data Center
+Collection (C) 2014 copyright by the U.S. Secretary of Commerce
+on behalf of the United States of America. All rights reserved.
+##$NIST MASS SPEC NO=320936
+##MOLFORM=C9 H12 F5 N O3
+##MW=277
+##$NIST SOURCE=MSDC
+##XUNITS=M/Z
+##YUNITS=RELATIVE INTENSITY
+##XFACTOR=1
+##YFACTOR=1
+##FIRSTX=27
+##LASTX=278
+##FIRSTY=120
+##MAXX=278
+##MINX=27
+##MAXY=9999
+##MINY=30
+##NPOINTS=34
+##PEAK TABLE=(XY..XY)
+27,120 39,50 41,240 42,450
+43,530 60,60 61,70 69,150
+72,190 78,30 88,160 102,140
+110,50 112,290 116,50 119,1441
+130,110 147,300 160,80 162,70
+168,40 176,140 188,130 189,40
+190,9999 191,1611 192,80 216,180
+217,150 218,420 235,50 236,170
+277,611 278,50
+
+##GROUP=Fluorocarbons##END=

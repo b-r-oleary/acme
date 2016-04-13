@@ -1,0 +1,32 @@
+##TITLE=1,1,3,3,3-Pentafluoro-2-(trifluoromethyl)-1-propene
+##JCAMP-DX=4.24
+##DATA TYPE=MASS SPECTRUM
+##ORIGIN=Eric Wils, TNO Prins Maurits Laboratory, The Netherlands.
+##OWNER=NIST Mass Spectrometry Data Center
+Collection (C) 2014 copyright by the U.S. Secretary of Commerce
+on behalf of the United States of America. All rights reserved.
+##CAS REGISTRY NO=382-21-8
+##$NIST MASS SPEC NO=273410
+##MOLFORM=C4 F8
+##MW=200
+##$NIST SOURCE=MSDC
+##XUNITS=M/Z
+##YUNITS=RELATIVE INTENSITY
+##XFACTOR=1
+##YFACTOR=1
+##FIRSTX=31
+##LASTX=201
+##FIRSTY=1281
+##MAXX=201
+##MINX=31
+##MAXY=9999
+##MINY=90
+##NPOINTS=17
+##PEAK TABLE=(XY..XY)
+31,1281 50,270 62,130 69,9188
+70,90 74,380 81,270 93,3223
+94,90 100,671 112,1281 131,1091
+150,831 181,9999 182,410 200,3163
+201,120
+##GROUP=Fluorocarbons
+##END=

@@ -14,7 +14,8 @@ import pickle
 import numpy as np
 import statfunctions
 import pandas as pd
-
+from textwrap import wrap
+import urllib2
 
 class MassSpectrumLibrary(object):
     """
@@ -47,6 +48,9 @@ class MassSpectrumLibrary(object):
         if path is None and library_path is None:
             raise IOError('must insert a path or a library path')
         
+        self.library = {}
+        self.groups = {}
+        
         if library_path is not None and not(create_library):
             self.library_path = library_path
             if isfile(library_path):
@@ -65,8 +69,7 @@ class MassSpectrumLibrary(object):
             self.library_path = library_path
             
             self.create_library()
-            
-        self.create_groups()
+        #self.create_groups()
         
     def __str__(self):
         return 'mass spec peak library: ' + str({k: v.keys() for k, v in self.groups.items()})
@@ -96,11 +99,21 @@ class MassSpectrumLibrary(object):
         self.library = {}
         
         for f in files:
-            output = self.parse_jdx(self.path + f)
-            output['PATH'] = self.path + f
-            self.library[output['TITLE']] = output
+            self.insert_into_library(self.path + f)
             
         self.save_library()
+        return
+    
+    def insert_into_library(self, path):
+        output = self.parse_jdx(path)
+        output['PATH'] = path
+        name = output['TITLE']
+        self.library[name] = output
+        if 'GROUP' in output.keys():
+            group = output['GROUP']
+            if group not in self.groups.keys():
+                self.groups[group] = {}
+            self.groups[group][name] = output 
         return
     
     def search_for_peaks(self, masses):
@@ -225,6 +238,75 @@ class MassSpectrumLibrary(object):
         plt.yscale(yscale)
         return
     
+    def scrape_from_massbank(self, url):
+        html = urllib2.urlopen(url).read()
+
+        Fields = [('AUTHORS:', 'ORIGIN='),
+                  ('CH$LINK: CAS','CAS REGISTRY NO='),
+                  ('CH\$EXACT_MASS:', 'MW='),
+                  ('CH\$FORMULA:', 'MOLFORM='),
+                  ('CH\$COMPOUND_CLASS:', 'GROUP='),
+                  ('PK\$NUM_PEAK:','NPOINTS=')]
+
+        names = re.findall(r'CH\$NAME: (.*?)\n', html)
+        name = ''
+        for n in names:
+            if name == '':
+                name = n
+            elif len(n) < len(name):
+                name = n
+
+        output = ['##TITLE=' + name]
+
+        for field in Fields:
+            found = re.findall(r'' + field[0] + ' (?:<a.*?>)?(.*?)(?:</a>)?\n', html)
+            if len(found) > 0:
+                output.append('##' + field[1] + found[-1])
+
+        add = ["##JCAMP-DX=4.24",
+               "##DATA TYPE=MASS SPECTRUM",
+               "##XUNITS=M/Z",
+               "##YUNITS=RELATIVE INTENSITY",
+               "##XFACTOR=1",
+               "##YFACTOR=1"]
+
+        output += add
+
+        result = re.findall(r'PK\$PEAK: m/z int. rel.int.\n(.*)\n//', html, re.DOTALL)[0]
+        result = result.split('\n')
+        result = [r.split(' ') for r in result]
+        result = [[subitem for subitem in item if subitem != ''] for item in result]
+        X = [int(float(item[0])) for item in result]
+        Y = [int(item[2]) for item in result]
+        result = [[str(x), str(y)] for x, y in zip(X, Y)]
+        result = [','.join(item) for item in result]
+        result = ' '.join(result)
+
+        add = ['##FIRSTX=' + str(X[0]),
+               '##LASTX=' + str(X[-1]),
+               '##FIRSTY=' + str(Y[0]),
+               '##MINX=' + str(min(X)),
+               '##MAXX=' + str(max(X)),
+               '##MINY=' + str(min(Y)),
+               '##MAXY=' + str(max(Y)),
+               '##PEAK TABLE=(XY..XY)' + result,
+               '##END=']
+
+        output += add
+
+        output = '\n'.join(output)
+
+        directory = os.path.split(self.library_path)[0]
+        path = os.path.join(directory, name + '_Mass_Spectrum.jdx')
+
+        with open(path, 'wb') as f:
+            f.write(output)
+
+        self.insert_into_library(path)
+        self.save_library()
+
+        return path
+    
     
 class MassSpectrum(object):
     """
@@ -257,8 +339,8 @@ class MassSpectrum(object):
     
     def __init__(self, path, background_region=4, 
                  p_detection=.01, title=None, discard_beginning=2,
-                 auto_fit=True, library=None, rga=None, p_fit_cutoff=.1,
-                 renormalize_error=True):
+                 auto_fit=True, library=None, rga=None, p_fit_cutoff=.04,
+                 renormalize_error=True, fit_method='all'):
         """
         perform background subtraction over the last *background_region* amus
         """
@@ -327,7 +409,8 @@ class MassSpectrum(object):
         self.fit = None
         if auto_fit and (library is not None):
             self.fit_to_library(library, p_cutoff=p_fit_cutoff, 
-                                renormalize_error=renormalize_error)
+                                renormalize_error=renormalize_error, 
+                                fit_method=fit_method)
         
     def _import_from_extorr_format(self):
         with open(self.path) as xml:
@@ -412,7 +495,8 @@ class MassSpectrum(object):
         return
         
     def plot(self, scan=True, fit=True, bar=True, peaks=True, 
-             yscale='log', color=None, label=True, full_xlim=False, legend=True):
+             yscale='log', color=None, label=True, full_xlim=False, 
+             legend=True, legend_loc='outside'):
         if label is None:
             label = [None] * 4
             legend =False
@@ -447,7 +531,10 @@ class MassSpectrum(object):
         
         plt.title(self.title)
         if legend:
-            plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+            if legend_loc=='outside':    
+                plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+            elif legend_loc=='inside':
+                plt.legend(loc='best')
         return
             
     
@@ -461,10 +548,12 @@ class MassSpectrum(object):
     def print_report(self, full_xlim=False, legend=True, **kwargs):
         
         if self.fit is not None:
-            plt.subplot(2,1,1)
-            self.plot(full_xlim=full_xlim, legend=legend, **kwargs)
-            plt.subplot(2,1,2)
-            self.plot_fit(full_xlim=full_xlim, legend=legend)
+            plt.subplot2grid((2,4), (0,0), colspan=3)
+            self.plot(full_xlim=full_xlim, legend=legend, legend_loc='inside', **kwargs)
+            plt.subplot2grid((2,4), (1,0), colspan=3)
+            self.plot_fit(full_xlim=full_xlim, legend=False)
+            plt.subplot2grid((2,4), (0,3), rowspan=2)
+            self.plot_fit_coefficients()
             plt.tight_layout()
         else:
             self.plot(**kwargs)
@@ -476,7 +565,9 @@ class MassSpectrum(object):
         plt.savefig(path)
         return
     
-    def fit_to_library(self, library, plot=False, p_cutoff=.1, renormalize_error=True):
+    def fit_to_library(self, library, plot=False, p_cutoff=.1, 
+                       renormalize_error=True, fit_method='all'):
+        
         models = library.normalized_models(self.low_mass, self.high_mass)
 
         y = self.fit_pressure
@@ -488,18 +579,30 @@ class MassSpectrum(object):
                                                   coefficient_names=models.keys(),
                                                   coefficient_units=[self.units]*len(models))
             coefficients = regr.get_coefficients()
-            statistically_significant = list((coefficients['p(zero)'] <= p_cutoff)
-                                                     & (coefficients['value'] > 0))
+            
+            statistical_significance = np.array(
+                                        [(p if v>=0 else 1) for p, v 
+                                        in zip(coefficients['p(zero)'], coefficients['value'])]
+                                       )
+            
+            statistically_significant = list(statistical_significance <= p_cutoff)
 
             if sum(statistically_significant) == len(statistically_significant):
                 break
             elif sum(statistically_significant) == 0:
                 print models
-                raise RuntimeError('none of the models fit sufficiently well to merit a fit.')
+                raise RuntimeError('none of the models fit sufficiently well to merit a fit at all.')
             else:
-                models = {models.keys()[i]: models[models.keys()[i]] 
-                          for i in range(len(models.keys())) if 
-                                          statistically_significant[i]}
+                if fit_method == 'all':
+                    models = {models.keys()[i]: models[models.keys()[i]] 
+                              for i in range(len(models.keys())) if 
+                                              statistically_significant[i]}
+                elif fit_method == 'one':
+                    del models[
+                               models.keys()[
+                                             np.argmax(statistical_significance)
+                                            ]
+                              ]
         
         self.fit = regr
         self.models = models
@@ -508,12 +611,14 @@ class MassSpectrum(object):
         
         return
         
-    def plot_fit(self, full_xlim=False, legend=True):
+    def plot_fit(self, full_xlim=False, legend=True, 
+                 color_palette='coolwarm'):
+        
         if self.fit is None:
             raise RuntimeError('you must first fit to a model before plotting')
             
         coefficients = self.fit.get_coefficients()
-        coefficients = coefficients.sort('value')
+        coefficients = coefficients.sort_values(by='value')
 
         data  = []
         names = []
@@ -523,7 +628,7 @@ class MassSpectrum(object):
             data.append(self.models.values()[index] * a)
             names.append(self.models.keys()[index])
 
-        colors = sns.color_palette("coolwarm", len(data))
+        colors = sns.color_palette(color_palette, len(data))
 
         baseline = self.dbackground / 2.0
 
@@ -588,3 +693,26 @@ class MassSpectrum(object):
                               'primary component': first_contributor,
                               'secondary component': second_contributor})
         return table
+    
+    def plot_fit_coefficients(self, color_palette='coolwarm', 
+                              alpha=.3, wrap_length=30, size=12):
+
+        table = self.fit.get_coefficients().sort_values(by='value')
+        colors = sns.color_palette(color_palette, len(table))
+        bottom = list(table['value'] - table['dvalue'])
+        top    = list(table['value'] + table['dvalue'])
+        names  = list(table['names'])
+        wrapped_names  = ['\n'.join(wrap(name, wrap_length))
+                  for name in names]
+        plt.xscale('log')
+        for i in range(len(table)):
+            plt.barh(i, top[i], left=bottom[i], 
+                                color=colors[i%len(colors)], 
+                                alpha=alpha, align='center')
+            plt.text(top[i]*2, i, wrapped_names[i], va='center', ha='left', size=11)
+        #plt.yticks(list(range(len(names))), wrapped_names, size=size)
+        plt.xlabel('Pressure (' + self.units + ')')
+        plt.ylim([-1, len(names)])
+        sns.despine(top=True,right=True)
+        plt.yticks([])
+        return

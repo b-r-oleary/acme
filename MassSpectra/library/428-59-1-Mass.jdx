@@ -1,0 +1,31 @@
+##TITLE=Hexafluoropropylene oxide
+##JCAMP-DX=4.24
+##DATA TYPE=MASS SPECTRUM
+##OWNER=NIST Mass Spectrometry Data Center
+Collection (C) 2014 copyright by the U.S. Secretary of Commerce
+on behalf of the United States of America. All rights reserved.
+##CAS REGISTRY NO=428-59-1
+##$NIST MASS SPEC NO=6361
+##MOLFORM=C3 F6 O
+##MW=166
+##$NIST SOURCE=MSDC
+##XUNITS=M/Z
+##YUNITS=RELATIVE INTENSITY
+##XFACTOR=1
+##YFACTOR=1
+##FIRSTX=16
+##LASTX=147
+##FIRSTY=40
+##MAXX=147
+##MINX=16
+##MAXY=9999
+##MINY=10
+##NPOINTS=21
+##PEAK TABLE=(XY..XY)
+16,40 19,70 24,50 28,220
+31,5365 36,10 47,1802 50,3423
+55,20 62,20 66,50 69,9999
+74,30 78,100 81,2112 93,100
+97,701 100,1992 119,1661 131,20
+147,230##GROUP=Fluorocarbons
+##END=

@@ -1,0 +1,29 @@
+##TITLE=Ammonium Chloride
+##JCAMP-DX=4.24
+##DATA TYPE=MASS SPECTRUM
+##ORIGIN=Japan AIST/NIMC Database- Spectrum MS-NW-9217
+##OWNER=NIST Mass Spectrometry Data Center
+Collection (C) 2014 copyright by the U.S. Secretary of Commerce
+on behalf of the United States of America. All rights reserved.
+##CAS REGISTRY NO=12125-02-9
+##$NIST MASS SPEC NO=228589
+##MOLFORM=Cl H4 N
+##MW=53
+##$NIST SOURCE=MSDC
+##XUNITS=M/Z
+##YUNITS=RELATIVE INTENSITY
+##XFACTOR=1
+##YFACTOR=1
+##FIRSTX=14
+##LASTX=39
+##FIRSTY=40
+##MAXX=39
+##MINX=14
+##MAXY=9999
+##MINY=10
+##NPOINTS=12
+##PEAK TABLE=(XY..XY)
+14,40 15,129 16,4399 17,6539
+18,289 19,10 28,40 35,1259
+36,9999 37,459 38,3399 39,10##GROUP=Other
+##END=

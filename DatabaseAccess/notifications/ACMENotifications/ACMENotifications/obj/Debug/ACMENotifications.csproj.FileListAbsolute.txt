@@ -1,6 +1,0 @@
-C:\Users\Brendon\Documents\PythonScripts\Jupyter\acme\DatabaseAccess\notifications\ACMENotifications\ACMENotifications\bin\Debug\ACMENotifications.exe.config
-C:\Users\Brendon\Documents\PythonScripts\Jupyter\acme\DatabaseAccess\notifications\ACMENotifications\ACMENotifications\bin\Debug\ACMENotifications.exe
-C:\Users\Brendon\Documents\PythonScripts\Jupyter\acme\DatabaseAccess\notifications\ACMENotifications\ACMENotifications\bin\Debug\ACMENotifications.pdb
-C:\Users\Brendon\Documents\PythonScripts\Jupyter\acme\DatabaseAccess\notifications\ACMENotifications\ACMENotifications\obj\Debug\ACMENotifications.csprojResolveAssemblyReference.cache
-C:\Users\Brendon\Documents\PythonScripts\Jupyter\acme\DatabaseAccess\notifications\ACMENotifications\ACMENotifications\obj\Debug\ACMENotifications.exe
-C:\Users\Brendon\Documents\PythonScripts\Jupyter\acme\DatabaseAccess\notifications\ACMENotifications\ACMENotifications\obj\Debug\ACMENotifications.pdb

@@ -3,6 +3,9 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import re
+import webbrowser
+import os
+import math
 
 
 class State(object):
@@ -339,6 +342,47 @@ class Molecule(object):
         if show:
             plt.show()
         return fig
+    
+    def franck_condon_estimate(self, state0=None, v0=0, state1=None, v1=0):
+        if state0 is None or state1 is None:
+            raise IOError('you must input two electronic states')
+
+        if v0 > 3 or v1 > 3:
+            print "the method used to estimate Franck Condons is not trustworthy for v > 3"
+
+        state0 = self.states[state0]
+        state1 = self.states[state1]
+
+        b0 = sum(state0.Be)/float(len(state0.Be))
+        b1 = sum(state1.Be)/float(len(state1.Be))
+
+        w0 = state0.we
+        w1 = state1.we
+
+        u = (((b1)**(-.5) - (b0)**(-.5))/((w1)**(-.5) + (w0)**(-.5)))**2
+
+        #heaviside = lambda x: (.5 if x==0 else (0 if x<0 else 1))
+        heaviside = lambda x: (1 if x>=0 else 0)
+
+        a = ((u**(v1 - v0)*(math.exp(-u)))/(math.factorial(v0) * math.factorial(v1)))
+        b = ((u - v1)**(v0) - heaviside(v0 - 2)*v1*(v0*(u - v1) + 2)**(v0 - 2))**2
+
+
+        return a * b
+
+    def franck_condon_estimate_table(self, state0=None, state1=None):
+        if state0 is None or state1 is None:
+            raise IOError('you must input two electronic states')
+        v = list(range(0,4))
+        table = np.ones((len(v), len(v)))
+        for v0 in v:
+            for v1 in v:
+                table[v0, v1] = self.franck_condon_estimate(state0=state0, v0=v0,
+                                                            state1=state1, v1=v1)
+        table = pd.DataFrame(table, index=v, columns=v)
+        return table
+    
+    
 
 class QuantumNumbers(object):
 

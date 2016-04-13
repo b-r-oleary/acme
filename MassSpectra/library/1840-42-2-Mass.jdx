@@ -1,0 +1,28 @@
+##TITLE=Methane, fluorotrinitro-
+##JCAMP-DX=4.24
+##DATA TYPE=MASS SPECTRUM
+##OWNER=NIST Mass Spectrometry Data Center
+Collection (C) 2014 copyright by the U.S. Secretary of Commerce
+on behalf of the United States of America. All rights reserved.
+##CAS REGISTRY NO=1840-42-2
+##$NIST MASS SPEC NO=6596
+##MOLFORM=C F N3 O6
+##MW=169
+##$NIST SOURCE=MSDC
+##XUNITS=M/Z
+##YUNITS=RELATIVE INTENSITY
+##XFACTOR=1
+##YFACTOR=1
+##FIRSTX=13
+##LASTX=61
+##FIRSTY=100
+##MAXX=61
+##MINX=13
+##MAXY=9999
+##MINY=100
+##NPOINTS=10
+##PEAK TABLE=(XY..XY)
+13,100 17,100 20,300 28,1601
+30,4104 31,901 42,400 46,9999
+60,300 61,100##GROUP=Fluorocarbons
+##END=

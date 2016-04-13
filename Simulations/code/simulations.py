@@ -59,8 +59,10 @@ class IntegrateSchrodingerEquation(object):
         
         if energy is None:
             energy = [0] * self.n_states
-        elif len(energy) != self.n_states:
-            raise IOError('the length of the energy input list must have the same length as psi0')
+        else:
+            self.n_states = len(energy)
+        #elif len(energy) != self.n_states:
+        #    raise IOError('the length of the energy input list must have the same length as psi0')
         
         if omega is None:
             omega = []
@@ -68,8 +70,8 @@ class IntegrateSchrodingerEquation(object):
         
         #handle the case in which we use dictionaries as inputs.
         if isinstance(energy, dict):
-            self.names = energy.keys()
-            energy = energy.values()
+            self.names = sorted(energy.keys())
+            energy = [energy[k] for k in self.names]
         else:
             if names is not None:
                 if len(names) != len(energy):
@@ -78,11 +80,7 @@ class IntegrateSchrodingerEquation(object):
             else:
                 self.names = list(range(len(energy)))
                 
-        if isinstance(self.psi0, dict):
-            new_psi0 = np.zeros(self.n_states)
-            for k, v in self.psi0.items():
-                new_psi0[self.names.index(k)] = v
-            self.psi0 = new_psi0
+        self.psi0 = self.state_dict_to_array(self.psi0)
             
         if isinstance(omega, dict):
             omega_structure = []
@@ -138,10 +136,7 @@ class IntegrateSchrodingerEquation(object):
             t = np.cumsum(self.dt) - self.dt[0]
             
         self.t = t
-        
-        self.psi0 = np.array(self.psi0)
-        if normalize_input_state:
-            self.psi0 = self.psi0 / np.sqrt(np.dot(self.psi0, np.conj(self.psi0.T)))
+
         # this will contain the record of the time evolution of psi:
         self.record_intermediate_states = record_intermediate_states
         self.psi_record = []
@@ -153,6 +148,17 @@ class IntegrateSchrodingerEquation(object):
         if auto_integrate:
             self.integrate()
         
+    def state_dict_to_array(self, state):
+        if isinstance(state, dict):
+            new_state = np.zeros(self.n_states, dtype='complex128')
+            for k, v in state.items():
+                new_state[self.names.index(k)] = v
+        else:
+            new_state = state
+        return self.normalize_state(np.array(new_state))
+        
+    def normalize_state(self, state):
+        return state/np.sqrt(np.dot(np.conj(state.T), state))
         
     def _update_n_iter(self, variable, list_variable=True):
         if not(list_variable):
@@ -257,7 +263,10 @@ class IntegrateSchrodingerEquation(object):
 
             if isinstance(states, dict):
                 names = states.keys()
-                states = np.array(states.values())
+                states = states.values()
+                
+            for i in range(len(states)):
+                states[i] = self.state_dict_to_array(states[i])
 
             if names is None:
                 names = ['input state ' + str(i) for i in range(len(states))]

@@ -1,0 +1,26 @@
+##TITLE=Hydrogen chloride
+##JCAMP-DX=4.24
+##DATA TYPE=MASS SPECTRUM
+##OWNER=NIST Mass Spectrometry Data Center
+Collection (C) 2014 copyright by the U.S. Secretary of Commerce
+on behalf of the United States of America. All rights reserved.
+##CAS REGISTRY NO=7647-01-0
+##$NIST MASS SPEC NO=18847
+##MOLFORM=Cl H
+##MW=36
+##$NIST SOURCE=MSDC
+##XUNITS=M/Z
+##YUNITS=RELATIVE INTENSITY
+##XFACTOR=1
+##YFACTOR=1
+##FIRSTX=35
+##LASTX=38
+##FIRSTY=1702
+##MAXX=38
+##MINX=35
+##MAXY=9999
+##MINY=540
+##NPOINTS=4
+##PEAK TABLE=(XY..XY)
+35,1702 36,9999 37,540 38,3243##GROUP=Solvents
+##END=

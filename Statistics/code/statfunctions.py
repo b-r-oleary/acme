@@ -131,7 +131,10 @@ def chi_squared(x, dx, mean_axis=None, chi2_axis=None, keepdims=False, ddof=1, r
 def correlation_coefficient(x, y, dx=None, dy=None, 
                             axis=None, keepdims=False, 
                             alpha=.317310, error_type='symmetric'):
-    
+    """
+    return the pearson correlation coefficient given two input time
+    arrays with errorbars
+    """
     if dx is None:
         dx = np.ones(x.shape)
     if dy is None:
@@ -165,6 +168,39 @@ def correlation_coefficient(x, y, dx=None, dy=None,
         return r, rl, ru
     elif error_type == 'all':
         return r, dr, rl, ru
+    
+def correlation_coefficient_with_offset(x, y, dx=None, dy=None, 
+                                        offset=1, offsets=None, **kwargs):
+    """
+    compute the correlation coefficient with an offset
+    """
+    if offsets is None:
+        offsets = [offset]
+        
+    a  = []
+    da = []
+    
+    if dx is None:
+        dx = np.ones(x.shape)
+    if dy is None:
+        dy = np.ones(y.shape)
+    
+    for offset in offsets:
+        r, dr = correlation_coefficient(x[offset:], y[:-offset], 
+                                        dx=dx[offset:], dy=dy[:-offset],
+                                        **kwargs)
+        a.append(r)
+        da.append(dr)
+        
+    a = np.array(a)
+    da = np.array(da)
+    
+    if len(a) == 1:
+        a  = a[0]
+        da = da[0]
+        
+    return a, da
+
     
 def autocorrelation(x, dx=None, offset=1, offsets=None, **kwargs):
     
@@ -363,6 +399,45 @@ def split_dataset(data, split_fraction=.75):
     dY= [(dy[perm[0]], dy[perm[1]]) for perm in perms]
     
     return X, Y, dY
+
+
+def windowed_std_estimation(array, n=10, x=None, function=np.std):
+    """
+    this can be used to roughly estimate the
+    local standard deviation of an array. This
+    is a crude estimate, but in some cases could
+    improve fitting without any input for uncertainty
+    estimates.
+    
+    inputs:
+    array: 1d array for which to estimate the std
+    n:     the number of adjacent values to sample for the std
+    x:     the corresponding x array that can designate the ordering
+           for the y values if input
+    function: the function used to evaluate the std, defaults to np.std.
+    """
+    return_x = (x is not None)
+    if return_x:
+        inds = np.argsort(x)
+        sorted_array = array[inds]
+    else:
+        sorted_array = array
+    
+    std_estimate = []
+    for i in range(len(array) - n):
+        std_estimate.append(function(sorted_array[i:i+n]))
+    std_estimate = ([std_estimate[0]] * (n//2) +
+                     std_estimate +
+                    [std_estimate[-1]] * ((n+1)//2))
+    
+    if return_x:
+        unsorted = np.zeros(len(std_estimate))
+        for i in range(len(std_estimate)):
+            unsorted[inds[i]] = std_estimate[i] 
+        return unsorted
+    else:
+        return np.array(std_estimate)
+
 
 def linear_regression(x_functions, y, dy=None, weights=None, return_c=False):
     """
@@ -566,7 +641,7 @@ class RegressionModel(object):
     model_type = 'meta-class for generic linear regression'
     
     def __init__(self, x, y, dy=None, data=None,
-                 label=None, renormalize_error=False, plot_errorbars=None, 
+                 label=None, renormalize_error=None, plot_errorbars=None, 
                  auto_fit=True, constraints=None, **kwargs):
         
         self._state = 'initialized'
@@ -579,7 +654,8 @@ class RegressionModel(object):
         
         # modify parameters contingent on inputting errorbars
         if dy is None:
-            renormalize_error = True
+            if renormalize_error is None:
+                renormalize_error = True
             dy = np.ones(y.shape)
             
             if plot_errorbars is None:
@@ -587,6 +663,8 @@ class RegressionModel(object):
         else:
             if plot_errorbars is None:
                 plot_errorbars = True
+        if renormalize_error is None:
+            renormalize_error=False
                 
         # manage possible problems with forms of the input data
         damage_control(y, dy)
@@ -687,20 +765,36 @@ class RegressionModel(object):
                      zip(self.coefficient_names, self.basis_names)]
             return self.y_name + ' = ' + ' + '.join(model)
     
-    def model_string_with_coefficients(self, style='plain'):
+    def model_string_with_coefficients(self, style='plain', p=.05, 
+                                       only_significant_terms=False, max_line_length = 100):
+
         coefficient_strings = [scientific_string(x, dx, style=style) 
                                for x, dx in 
                                zip(self.coefficients, self.dcoefficients)]
+
+
+        n_sigma = np.abs(self.coefficients/self.dcoefficients)
+        inds = np.flipud(np.argsort(n_sigma))
+        if not(only_significant_terms):
+            p = 1.0
+        significant = (normal_n_sigma_to_p(n_sigma, N=len(self.coefficients)) <= p)
+
         if style == 'plain':
             p = lambda b: (('(' + b + ')') if b != '' else '')
-            model = [(a + p(b) + c ) for a, b, c in zip(coefficient_strings, 
+            model = [(a + p(b) + c ) for i, (a, b, c) 
+                                                    in enumerate(
+                                                    zip(coefficient_strings, 
                                                     self.coefficient_units, 
-                                                    self.basis_names)]
+                                                    self.basis_names))
+                                                    if significant[i]]
         elif style == 'latex':
             p = lambda b: (('(\\mathrm{' + b + '})') if b != '' else '')
-            model = [(a + p(b) + c ) for a, b, c in zip(coefficient_strings, 
+            model = [(a + p(b) + c ) for i, (a, b, c) 
+                                                    in enumerate(
+                                                    zip(coefficient_strings, 
                                                     self.coefficient_units, 
-                                                    self.basis_names)]
+                                                    self.basis_names))
+                                                    if significant[i]]
         else:
             raise IOError('')
                         
@@ -783,6 +877,18 @@ class RegressionModel(object):
             self.chi2           = 1
             
         return
+    
+    def get_chi2(self, unnormalized=True, string=False, **kwargs):
+        if unnormalized:
+            chi2 = self._chi2
+            dchi2= self._dchi2
+        else:
+            chi2 = self.chi2
+            dchi2= self.dchi2
+        if string:
+            return scientific_string(chi2, dchi2, **kwargs)
+        else:
+            return (chi2,dchi2)
     
     def unnormalize_error(self, coefficients=True):
         """
@@ -929,7 +1035,12 @@ class NonLinearFit1D(RegressionModel):
     
     def __init__(self, x, y, dy=None, start_point=None, 
                  variables=None, expression=None, 
-                 model_function=None, model_function_derivative=None, **kwargs):
+                 model_function=None, model_function_derivative=None, 
+                 max_iter=10000, x_name=None, y_name=None,
+                 x_unit=None, y_unit=None, 
+                 residual_std_estimate=False, 
+                 residual_std_estimate_window=6, 
+                 **kwargs):
         
         # we can directly input the model function and the model function derivative,
         # or we can input sympy variables and a sympy expression
@@ -943,10 +1054,23 @@ class NonLinearFit1D(RegressionModel):
             start_point = [1 for i in range(self.ddof)]
         self.start_point = start_point
         
-        super(NonLinearFit1D, self).__init__(x, y, dy, **kwargs)
+        self.x_name = str(x_name)
+        self.x_unit = str(x_unit)
+        self.y_name = str(y_name)
+        self.y_unit = str(y_unit)
+        
+        self.residual_std_estimate = residual_std_estimate
+        self.residual_std_estimate_window = residual_std_estimate_window
+        
+        super(NonLinearFit1D, self).__init__(x, y, dy, 
+                                             y_name=y_name, y_unit=y_unit,
+                                             **kwargs)
         
         if self.auto_fit:
-            self.fit()
+            try:
+                self.fit(max_iter)
+            except:
+                print('fit optimum was not found')
             
     def generate_model_function(self, variables, expression, 
                                 model_function, model_function_derivative):
@@ -954,13 +1078,15 @@ class NonLinearFit1D(RegressionModel):
         generate a model function and generate the model function derivative
         from input sympy expressions.
         """
+        # modules from which to pull functions:
+        modules = ['numpy', {'erfinv': erfinv, 'erf': erf}]
         
         if (variables is not None) and (expression is not None):
-            model_function = lambdify(variables, expression, modules='numpy')
+            model_function = lambdify(variables, expression, modules=modules)
 
             derivatives = [lambdify(variables, 
                                     expression.diff(variables[i]), 
-                                    modules='numpy')
+                                    modules=modules)
                                     for i in range(1, len(variables))]
 
             def model_function_derivative(x, *args):
@@ -990,14 +1116,16 @@ class NonLinearFit1D(RegressionModel):
         
         return y_est, dy_est
     
-    def fit(self):
+    def fit(self, max_iter=1000):
         
         x = np.squeeze(self.data.x)
 
         self.coefficients, self.covariance = curve_fit(self.model_function, 
-                                                       x, self.data.y, sigma=self.data.dy, 
+                                                       x, self.data.y, 
+                                                       sigma=self.data.dy, 
                                                        p0=self.start_point,
-                                                       absolute_sigma=True)
+                                                       absolute_sigma=True,
+                                                       maxfev=max_iter)
         
         self.dcoefficients = np.sqrt(np.diag(self.covariance))
             
@@ -1014,13 +1142,42 @@ class NonLinearFit1D(RegressionModel):
         if self._renormalize_error:
             self.renormalize_error()
             
+        if self.residual_std_estimate:
+            new_dy = windowed_std_estimation(self.residuals(), 
+                                             n=self.residual_std_estimate_window, 
+                                             x=self.data.x[0,:])
+            self.data.dy = new_dy
+            self.residual_std_estimate = False
+            self.start_point = self.coefficients
+            self.fit()
+            
         return
     
     def plot_labels(self, which, style='latex'):
+        if style == 'latex':
+            s = lambda i: '\, (\\mathrm{' + str(i) + '})'
+        else:
+            s = lambda i: ' (' + str(i) + ')'
+        
         if which == 'x':
-            return 'x'
+            string = self.x_name
+            if self.x_unit != 'None':
+                string = string + s(self.x_unit)
         elif which == 'y':
-            return 'y'
+            string = self.y_name
+            if self.y_unit != 'None':
+                string = string + s(self.y_unit)
+        elif which == 'residuals':
+            string = '\\mathrm{residuals}'
+            if self.y_unit != 'None':
+                string = string + s(self.y_unit)
+        else:
+            raise IOError('')
+            
+        if style == 'latex':
+            return '$' + string + '$'
+        else:
+            return string
     
     def plot(self, **kwargs):
         return regression_plot(self, **kwargs)
@@ -1119,7 +1276,8 @@ class LinearRegression2D(LinearRegressionModel):
             
         labels = {'x':[str(self.x_names[0]), str(self.x_units[0])],
                   'y':[str(self.x_names[1]), str(self.x_units[1])],
-                  'z':[str(self.y_name), str(self.y_unit)]}
+                  'z':[str(self.y_name), str(self.y_unit)],
+                  'residuals':['residuals', str(self.y_unit)]}
         
         string = labels[which][0]
         if labels[which][1] != 'None':
@@ -1181,6 +1339,11 @@ class PolynomialFit2D(LinearRegression2D):
         
         basis_names = []
         coefficient_units = []
+
+        if y_unit is None:
+            y_unit = 'None'
+        if x_units is None:
+            x_units = ('None', 'None')
         
         for order in self.orders:
             if order[0] == 0 and order[1] == 0:
@@ -1205,7 +1368,7 @@ class PolynomialFit2D(LinearRegression2D):
                 basis_names.append(term)
                 coefficient_units.append(fract(units))
                 
-        if x_units is None or y_unit is None:
+        if x_units == ('None','None') or y_unit == 'None':
             coefficient_units = [''] * len(self.orders)
         
         return basis_names, coefficient_units
@@ -1317,7 +1480,7 @@ class PolynomialFit1D(LinearRegression1D):
         coefficient_names = []
         
         x_unit = str(x_unit)
-        y_unit = str(x_unit)
+        y_unit = str(y_unit)
         
         for order in self.orders:
             if order == 0:
@@ -1738,20 +1901,21 @@ class FourierTransform(SineFit1D):
         return regr
     
 
+
 class KernelEstimator1D(RegressionModel):
     
     model_type = 'kernel estimator'
     
     def __init__(self, x, y, dy=None, 
                  width=None, order=None, 
-                 method='quadratic', kernel='normal',
+                 method='smooth', kernel='normal',
                  x_name='x', x_unit=None, **kwargs):
         
         self.x_unit = str(x_unit)
         self.x_name = str(x_name)
         
         if width is None:
-            base = 3
+            base = 4
             factor = {'smooth': 0, 'linear': 1, 'quadratic':2, 
                       'polynomial': (order if order is not None else 0),
                       'cubic': 3, 'constant': 0} 
@@ -1777,14 +1941,12 @@ class KernelEstimator1D(RegressionModel):
         y_est  = []
         dy_est = []
          
-        i = 0
         for x_i in x:
             y_est_i, dy_est_i = self.method(self.kernel(x_i), 
                                             self.data.x, 
                                             self.data.y, 
                                             self.data.dy, 
-                                            i)
-            i += 1
+                                            x_i)
             
             y_est.append(y_est_i)
             dy_est.append(dy_est_i)
@@ -1804,7 +1966,7 @@ class KernelEstimator1D(RegressionModel):
         self._state = 'fit'
         
         if self._renormalize_error:
-            self.renormalize_error()
+            self.renormalize_error(coefficients=False)
             
         return
             
@@ -1843,7 +2005,7 @@ class KernelEstimator1D(RegressionModel):
     def get_method_function(self, method):
         
         if method in ['smooth', 'constant']:
-            def smooth(k, x, y, dy, i):
+            def smooth(k, x, y, dy, x_i):
                 norm   = np.sum(k / dy**2)
                 y_est  = np.sum(k * y / dy**2) / norm
                 dy_est = np.sqrt(np.sum(k**2 / dy**2)) / norm
@@ -1865,19 +2027,19 @@ class KernelEstimator1D(RegressionModel):
                 else:
                     order = self.order
             
-            def local_linear_regression(k, x, y, dy, i):
-                
+            def local_linear_regression(k, x, y, dy, x_i):
                 x_function  = np.array([np.squeeze(x**j) for j in range(order + 1)])
+                x_eval      = np.array([np.squeeze([x_i**j, x_i**j]) for j in range(order + 1)])
                 weights     = np.squeeze(dy/np.sqrt(k))
                 
                 coefficients, dcoefficients, covariance = linear_regression(x_function, y, weights)
                 
-                y_est, dy_est = evaluate_linear_regression_model(x_function,
+                y_est, dy_est = evaluate_linear_regression_model(x_eval,
                                                                  coefficients, 
-                                                                 dcoefficients, 
+                                                                 dcoefficients,
                                                                  covariance)
                 
-                return y_est[i], dy_est[i]
+                return y_est[0], dy_est[0]
             
             self.ddof = 1 + order
             return local_linear_regression
@@ -1912,6 +2074,9 @@ class KernelEstimator1D(RegressionModel):
     def plot(self, legend=True, chi2=False, **kwargs):
         return regression_plot(self, legend=legend, 
                                fit_expression=False, chi2=chi2, **kwargs)
+    
+    def get_coefficients(self):
+        return pd.DataFrame([[None]*6],columns=["names", "units", "value", "dvalue", "significance", "p(zero)"])        
         
         
 
@@ -2107,7 +2272,7 @@ def plot3D(regrs, colors=None, legend=False, labels=None,
            v_angle=30, h_angle=45, contour=None, fit_errors=True,
            error_linewidth=.5, show=False, viewing_distance=12., 
            colormap=None, axis_style='plain', p_coefficient=.05, 
-           max_line_length=140, **kwargs):
+           max_line_length=140, residuals=False, errorbars=False, **kwargs):
     
     if not(isinstance(regrs,(list, tuple))):
         regrs = [regrs]
@@ -2156,7 +2321,7 @@ def plot3D(regrs, colors=None, legend=False, labels=None,
     zlim = []
                              
     for regr in regrs:
-        regr_xylim, regr_zlim = regr.data_limits()
+        regr_xylim, regr_zlim = regr.data_limits(residuals=residuals)
         regr_xlim = regr_xylim[0]
         regr_ylim = regr_xylim[1]
             
@@ -2197,9 +2362,12 @@ def plot3D(regrs, colors=None, legend=False, labels=None,
     count = 0
     for regr in regrs:
         z_eval, dz_eval = regr.evaluate_model(np.array([x_eval, y_eval]))
-
+        
         z_2d = np.reshape(z_eval,(N, N))
         dz_2d = np.reshape(dz_eval,(N, N))
+            
+        if residuals:
+            z_2d = np.zeros(z_2d.shape)
                              
         ax.plot_surface(x_2d, y_2d, z_2d,
                         rstride=8, 
@@ -2207,26 +2375,43 @@ def plot3D(regrs, colors=None, legend=False, labels=None,
                         alpha=alpha_fit, 
                         cmap=colormap,
                         color=colors[count % len(colors)])
-        if contour:      
+        if contour and not(residuals):      
             con = ax.contour(x_2d, y_2d, z_2d, zdir='z', 
                              offset=zlim[0], cmap=colormap, alpha=alpha_fit, 
                              color=colors[count % len(colors)])
                              
-        if len(regrs) == 1:
+        if len(regrs) <= 1:
             data_color = 'k'
         else:
             data_color = colors[count % len(colors)]
+            
+        dy = regr.data.dy
+        if residuals:
+            y = regr.residuals()
+            y_est = np.zeros(y.shape)
+        else:
+            y = regr.data.y
+            y_est = regr.y_est
                 
-        ax.scatter(regr.data.x[0], regr.data.x[1], regr.data.y, alpha=alpha_data, 
+        ax.scatter(regr.data.x[0], regr.data.x[1], y, alpha=alpha_data, 
                    label=labels[count], color=data_color)
 
         if fit_errors:
             for i in range(len(regr.data)):
                 ax.plot([regr.data.x[0][i], regr.data.x[0][i]], 
                          [regr.data.x[1][i], regr.data.x[1][i]],
-                         [regr.data.y[i], regr.y_est[i]], '-', 
+                         [y[i], y_est[i]], '-', 
                          linewidth=error_linewidth, alpha=alpha_data,
                          color=data_color)
+                
+        if errorbars:
+            for i in range(len(regr.data)):
+                ax.plot([regr.data.x[0][i], regr.data.x[0][i]], 
+                         [regr.data.x[1][i], regr.data.x[1][i]],
+                         [y[i] - dy[i], y[i] + dy[i]], '-b', 
+                         linewidth=error_linewidth * 1.5, alpha=alpha_data/1.5,
+                         color=data_color)
+            
                              
         count += 1
 
@@ -2236,7 +2421,10 @@ def plot3D(regrs, colors=None, legend=False, labels=None,
 
     ax.set_xlabel(regrs[0].plot_labels('x', style=axis_style))
     ax.set_ylabel(regrs[0].plot_labels('y', style=axis_style))
-    ax.set_zlabel(regrs[0].plot_labels('z', style=axis_style))
+    if residuals:
+        ax.set_zlabel(regrs[0].plot_labels('residuals', style=axis_style))
+    else:
+        ax.set_zlabel(regrs[0].plot_labels('z', style=axis_style))
     
                              
     ax.set_xlim(xlim)

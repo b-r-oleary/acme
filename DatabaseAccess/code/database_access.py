@@ -1,5 +1,6 @@
 import pyodbc
 import datetime
+import time
 import matplotlib.pyplot as plt
 from matplotlib import dates
 import matplotlib
@@ -16,10 +17,52 @@ from getpass import getpass
 from matplotlib.colors import LogNorm
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import copy
+from functools import partial
+import sys
+sys.path.insert(0, '../Statistics/code')
+from statfunctions import KernelEstimator1D
+
+class cached(object):
+    """
+    create a function that takes in no input args 
+    that caches data so that it runs the function 
+    the first time it is
+    called, and when "update=True" is called on
+    the input, but otherwise returns the cached data.
+    
+    i'm using this so that i can grab tables from
+    the database and save them locally so that
+    I don't have to query the database each time
+    I look at the table.
+    
+    this is to be used as a method decorator
+    """
+    
+    def __init__(self, func):
+        self.func  = func # store the function
+        self.cache = None # initialize the cache with None
+    def __get__(self, obj, objtype=None):
+        # this get method effectively reduces a class method
+        # to the status of a global method
+        if obj is None:
+            return self.func
+        return partial(self, obj)
+    def __call__(self, obj, update=False, *args, **kw):
+        # when called, call the function only if
+        # the cache is empty or if update=True is passed.
+        if (self.cache is None) or update:
+            self.cache = self.func(obj, *args, **kw)
+        return self.cache
 
 
 def get_data_files(directory='./', file_extensions=['pkl'], recursive_search=True):
+    """
+    search the input *directory* for files with file extensions in
+    *file_extensions* perform this search recursively through folders if
+    *recursive_search=True*.
     
+    return a list of files that match the above criteria
+    """
     if directory[-1] not in ['/', '\\']:
         directory = directory + '/'
         
@@ -41,6 +84,12 @@ def get_data_files(directory='./', file_extensions=['pkl'], recursive_search=Tru
             
 
 def load(filename=None, directory='./'):
+    """
+    uses pickle to load an object from file, given
+    a *filename* and a *directory*. If filename is
+    not input, this method finds a list of files
+    and prompts the user for which one is to be opened.
+    """
     if filename is None:
         files = get_data_files(directory=directory,
                                file_extensions=['pkl'],
@@ -55,17 +104,31 @@ def load(filename=None, directory='./'):
     return output
         
 def save(obj, filename):
+    """
+    uses pickle to save an object *obj* to path *filename*
+    """
     with open(filename, 'wb') as f:
         pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
     print('saved: ' + filename)
     return
 
 def time_string_to_seconds(time):
+    """
+    converts a time string that is formatted as:
+        "<<number>> <<unit>>"
+    to seconds.
+    
+    for example:
+        time_string_to_seconds("1.6 hours")
+        >> 5760.0
+        time_string_to_seconds("10 ms")
+        >> 0.01
+    """
     #the time string can use the following units with the following conversions to seconds:
     time_units={'ms':.001, 's':1, 'min':60, 'hr':3600, 
                 'day':86400, 'week':604800, 'month':2592000,
                 'year':31536000}
-    
+    # allow for variations in the unit formatting:
     variants = {'ms':'ms', 'millisecond':'ms', 
                 's':'s', 'second':'s', 'sec':'s',
                 'min':'min', 'minute':'min',
@@ -97,6 +160,19 @@ def time_string_to_seconds(time):
 def get_time_range(duration='1 hour', 
                    start_time=None, 
                    end_time=None):
+    """
+    produces a starting time and an ending time. It defaults to
+    1 hour ago to now.
+    
+    inputs:
+    duration (time string formatted according to time_string_to_seconds method) time duration
+    start_time (datetime) starting time
+    end_time (datetime) ending time
+    
+    outputs:
+    start_time (datetime)
+    end_time (datetime)
+    """
     
     delta_time = datetime.timedelta(0,time_string_to_seconds(duration))
     
@@ -113,6 +189,10 @@ def get_time_range(duration='1 hour',
     return start_time, end_time
 
 def create_filename(start_time=None, end_time=None, channels=None, fmt='%Y-%m-%dT%H-%M'):
+    """
+    create a filename that specifies the *start_time* (datetime), the *end_time* (datetime), and the list
+    of channels included in the file with a specified time formatting *fmt*
+    """
     string = []
     if start_time is not None:
         string.append(start_time.strftime(fmt))
@@ -133,14 +213,42 @@ class TimeSeries(object):
     and figures.
     """
     
-    def __init__(self, t=None, x=None, channel=None):
-        
+    def __init__(self, t=None, x=None, channel=None, 
+                 kernel_regression=False, **kwargs):
+        """
+        inputs:
+        t (list of datetime objects)
+        x (list of floats)
+        channel (pandas Series with channel details including LogChannelName and UnitName)
+        kernel_regression (bool) whether or not to perform kernel regression
+        **kwargs: passed to the kernel regression object
+        """
         self.t = t
         self.x = x
         self.channel = channel
+        self.kernel_regression = kernel_regression
+        if self.kernel_regression:
+            # convert datetime to hours
+            tn = np.array([time.mktime(t0.timetuple()) for t0 in self.t])
+            tn = (tn - min(tn))/3600
+            # create a kernel regression object
+            self.regr = KernelEstimator1D(np.array(tn), np.array(self.x),
+                                           x_name = 't', x_unit = 'hr',
+                                           y_name = self.channel['LogChannelName'],
+                                           y_unit = self.channel['UnitName'],
+                                           **kwargs)
         
     def plot(self, formatting=True, y_style='sci', 
              wrap_length=30, remove_extreme_yticks=False):
+        """
+        plot the time series data t, x
+        
+        inputs:
+        formatting (bool) 
+        y_style (string)
+        wrap_length (int)
+        remove_extreme_yticks (book)
+        """
         if remove_extreme_yticks:
             mult_factor = 10**np.ceil(np.log10(np.max(self.x)))
             plt.plot(self.t, self.x / mult_factor, label=self.label())
@@ -772,59 +880,32 @@ class DatabaseAccess(object):
             self.connections[database].commit()
         if output:
             rows = cursor.fetchall()
-            try:
-                row = rows[0]
-                names = [item[0] for item in row.cursor_description]
-                output = {names[i]: [row[i] for row in rows] for i in range(len(names))}
-                output = pd.DataFrame(output)
-                if index is not None:
-                    output = output.set_index(index)
-                return output
-            except:
-                raise IOError('error on outputting data')
+            row = rows[0]
+            names = [item[0] for item in row.cursor_description]
+            output = {names[i]: [row[i] for row in rows] for i in range(len(names))}
+            output = pd.DataFrame(output)
+            if index is not None:
+                output = output.set_index(index)
+            return output
+
         else:
             return None
     
-    def logging_channels(self, update=False):
-        if not(update):
-            try:
-                return self._logging_channels
-            except:
-                pass
-        
-        table = self.get_table('LogChannelDetails', index='LogChannelName')
-        self._logging_channels = table
-        return self._logging_channels
+    @cached
+    def logging_channels(self):
+        return self.get_table('LogChannelDetails', index='LogChannelName')
+
+    @cached
+    def logging_controls(self):
+        return self.get_table('LogControlDetails', index='LogControlName')
     
-    def logging_controls(self, update=False):
-        if not(update):
-            try:
-                return self._logging_controls
-            except:
-                pass
-        table = self.get_table('LogControlDetails', index='LogControlName')
-        self._logging_controls = table
-        return table
+    @cached
+    def logging_groups(self):
+        return self.get_table('LogChannelGroups', index='LogChannelGroupName')
     
-    def logging_groups(self, update=False):
-        if not(update):
-            try:
-                return self._logging_groups
-            except:
-                pass
-        table = self.get_table('LogChannelGroups', index='LogChannelGroupName')
-        self._logging_groups = table
-        return self._logging_groups
-    
-    def control_states(self, update=False):
-        if not(update):
-            try:
-                return self._control_states
-            except:
-                pass
-        table = self.get_table('LogControlStates', index='LogControlStateName')
-        self._control_states = table
-        return table
+    @cached
+    def control_states(self):
+        return self.get_table('LogControlStates', index='LogControlStateName')
     
     def control_name(self, control_id):
         table = self.logging_controls()
@@ -858,7 +939,7 @@ class DatabaseAccess(object):
         return table[table['LogChannelGroupName'] == group_name]
     
     def get_data(self, channel=None, group=None, duration='1 hour',
-                 start_time=None, end_time=None, name=None):
+                 start_time=None, end_time=None, name=None, **kwargs):
         # do some input checking to allow for multiple channels
         # and multiple groups.
         
@@ -885,13 +966,13 @@ class DatabaseAccess(object):
         time_series = []
         for channel in channels:
             ts = self.get_time_series(channel, duration=duration,
-                                      start_time=start_time, end_time=end_time)
+                                      start_time=start_time, end_time=end_time, **kwargs)
             time_series.append(ts)
         return TimeSeriesArray(time_series, name=name)
         
     
     def get_time_series(self, channel_name=None, duration='1 hour', 
-                           start_time=None, end_time=None):
+                           start_time=None, end_time=None, **kwargs):
         """
         this method performs a database query to obtain data from
         the database and returns a TimeSeries object.
@@ -924,7 +1005,7 @@ class DatabaseAccess(object):
         timestamps = [row.TimeStamp for row in rows]
         data       = [row.Data for row in rows]
         
-        time_series = TimeSeries(t=timestamps, x=data, channel=channel)
+        time_series = TimeSeries(t=timestamps, x=data, channel=channel, **kwargs)
         
         return time_series
     
@@ -995,13 +1076,8 @@ class DatabaseAccess(object):
         return TimeSeriesStates(TimeStamp, LogControlID, LogControlStateID,
                                 self.logging_controls(), self.control_states(), title=title)
     
-    def get_list_of_ablation_maps(self, update=False):
-        if not(update):
-            try:
-                return self._list_of_ablation_maps
-            except:
-                pass
-        
+    @cached
+    def get_list_of_ablation_maps(self):
         table = self.sql_command("""
             SELECT a.MapID, a.MinTime, a.MaxTime, TargetID=b.LogControlStateID, 
                    TargetName=b.LogControlStateName, TargetDetails = CAST(b.LogControlStateInfo AS VARCHAR(MAX))
@@ -1015,7 +1091,6 @@ class DatabaseAccess(object):
             LoggingConfigSQL.dbo.LogControlStates b 
             ON a.TargetID = b.LogControlStateID
         """, database='LoggingLogData', index='MapID')
-        self._list_of_ablation_maps = table
         return table
     
     def get_ablation_map(self, map_id=None):
@@ -1041,4 +1116,105 @@ class DatabaseAccess(object):
                            list(data.OnTimeSeconds),
                            map_details)
             
+    def insert_text_file(self, title, datatype, text=None,
+                         header='', timestamp='now', filename=None,):
+        """
+        insert a text file with text given by *text* specified as belonging to a
+        certain *datatype* (which is a string). *datatype* is a data format that is
+        used as an identifier
+        """
+        if text is None and filename is None:
+            raise IOError('you must input either *text* or *filename*')
+        if text is None:
+            with open(filename, 'rb') as f:
+                text = f.read()
+        
+        data_types = self.text_file_data_types()
+        if datatype not in data_types.index:
+            print("""your datatype was not recognized,
+                  would you like to create a new data type with
+                  the name provided?""")
+            i = input('[y/n]')
+            if not(i == 'y'):
+                print 'your file has not been saved'
+                return
+            else:
+                description = input("provide a description of this data type\n")
+                self.insert_text_file_data_type(datatype, description)
+                return self.insert_text_file(title, text, datatype, header, timestamp)
+        
+        data_type_id = data_types.T[datatype]['DataTypeID']
+        if timestamp == 'now':
+            timestamp = datetime.datetime.now()
+        
+        time_format = '%Y-%m-%dT%X'
+        timestamp_string = timestamp.strftime(time_format)
+        
+        dequote = lambda string: string.replace("'","''")
+        
+        command = ("""
+        INSERT INTO TextFileData
+        (TimeStamp, Title, Header, Data, DataTypeID)
+        VALUES ('""" + timestamp_string + 
+              "', '" + dequote(title) + "', '" + dequote(header) +
+              "', '" + dequote(text) + "', " + str(data_type_id) + ")")
+        
+        self.sql_command(command, database='LoggingLogData', 
+                         output=False, commit=True)
+        return
+        
+
+    def insert_text_file_data_type(self, datatype, description=None):
+        """
+        create a new text file data type for saving to the database
+        *datatype* is a string (varchar(50))
+        *description* is a string that describes the type of data
+        """
+        deal_with_quotes = lambda string: string.replace("'","''")
+        command = ("""
+        INSERT INTO TextFileDataTypes
+        (DataType, DataTypeDescription)
+        VALUES ('""" + deal_with_quotes(datatype) + "', ")
+
+        if description is None:
+            command = command + "NULL"
+        else:
+            command = command + "'" + deal_with_quotes(description) + "'"
+        command = command + ")"
+
+        self.sql_command(command, database='LoggingLogData', 
+                         output=False, commit=True)
+        return
+
+    @cached
+    def text_file_data_types(self):
+        return self.get_table('TextFileDataTypes', database='LoggingLogData', index='DataType')
+
+    @cached
+    def _get_text_file_list(self):
+        return self.get_table('TextDataPreviews', database='LoggingLogData', index='FileID')
+
+    def get_text_file_list(self, start_time=None, end_time=None, datatype=None, update=False):
+        table = self._get_text_file_list(update=update)
+        if start_time is not None:
+            table = table[table['TimeStamp'] > start_time]
+        if end_time is not None:
+            table = table[table['TimeStamp'] < end_time]
+        if datatype is not None:
+            table = table[table['DataType'] == datatype]
+        return table
     
+    def get_text_file(self, file_id=None, title=None):
+        if file_id is None and title is None:
+            raise IOError('you must imput file_id or title')
+        command = """
+        SELECT FileID, DataTypeID, Title, Header, Data
+        FROM TextFileData
+        """
+        if file_id is not None:
+            command += """WHERE FileID = """ + str(file_id)
+        else:
+            command += """WHERE Title = '""" + title + "'"
+
+        table = self.sql_command(command, database="LoggingLogData")
+        return table

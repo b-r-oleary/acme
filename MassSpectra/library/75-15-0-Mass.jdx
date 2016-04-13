@@ -1,0 +1,31 @@
+##TITLE=Carbon disulfide
+##JCAMP-DX=4.24
+##DATA TYPE=MASS SPECTRUM
+##ORIGIN=NIST Mass Spectrometry Data Center, 1990.
+##OWNER=NIST Mass Spectrometry Data Center
+Collection (C) 2014 copyright by the U.S. Secretary of Commerce
+on behalf of the United States of America. All rights reserved.
+##CAS REGISTRY NO=75-15-0
+##$NIST MASS SPEC NO=118705
+##MOLFORM=C S2
+##MW=76
+##$NIST SOURCE=MSDC
+##XUNITS=M/Z
+##YUNITS=RELATIVE INTENSITY
+##XFACTOR=1
+##YFACTOR=1
+##FIRSTX=12
+##LASTX=80
+##FIRSTY=198
+##MAXX=80
+##MINX=12
+##MAXY=9999
+##MINY=3
+##NPOINTS=15
+##PEAK TABLE=(XY..XY)
+12,198 16,3 32,1425 33,16
+34,82 38,475 39,38 44,1632
+45,38 46,66 76,9999 77,281
+78,759 79,17 80,24
+##GROUP=Other
+##END=

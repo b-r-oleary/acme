@@ -66,3 +66,11 @@ This is a repository of tools for accessing the ACME database. This introduces t
 ## SymbolicManipulation
 
 This is a repository for add-ons to `sympy` a symbolic manipulation package for python. The file `./SymbolicManipulation/code/sympy_plotting.py` contains two methods `plots` and `manipulate` that extends the sympy plotting functionality to include a mathematica-like manipulate capabilities within an ipython notebook.
+
+## Analysis
+
+This is a repository for some tools for importing and analyzing ACME PMT fluorescence data.
+
+## ExperimentSwitchConfiguration
+
+This repository includes some tools for designating instructions for creating experiments, and exporting experiment switch sequences.

@@ -1,3 +1,9 @@
+import sys
+sys.path.insert(0, '../ExperimentalSwitchConfiguration/code')
+sys.path.insert(0, '../Statistics/code')
+from switches import Switch, Sequence
+from statfunctions import KernelEstimator1D
+
 import pyodbc
 import datetime
 import time
@@ -18,9 +24,7 @@ from matplotlib.colors import LogNorm
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import copy
 from functools import partial
-import sys
-sys.path.insert(0, '../Statistics/code')
-from statfunctions import KernelEstimator1D
+
 
 class cached(object):
     """
@@ -906,6 +910,54 @@ class DatabaseAccess(object):
     @cached
     def control_states(self):
         return self.get_table('LogControlStates', index='LogControlStateName')
+    
+    @cached
+    def switch_configurations(self):
+        return self.get_table('SwitchConfigurations',index=['SwitchConfigName','SwitchConfigID'])
+    
+    def get_switch_configuration(self, *args):
+        """
+        get a Sequence object (see '../ExperimentalSwitchConfiguration/code/switches.py')
+        that corresponds to one of the entries in the 'SwitchConfigurations' table in
+        the 'LoggingConfigSQL' database, which can be viewed from the self.switch_configurations()
+        method.
+        
+        input options: either or of these, or both:
+        SwitchConfigurationName (string), SwitchConfigurationID (int)
+        in any order.
+        """
+        args = list(args)
+        if len(args) > 2:
+            args = args[:2]
+        
+        config_name = None
+        config_id   = None
+        while len(args) > 0:
+            item = args.pop(0)
+            if isinstance(item, str):
+                config_name = item
+            elif isinstance(item, int):
+                config_id   = item
+        
+        if ((config_name is None or config_name == '')
+            and config_id is None):
+            raise IOError('you must input the configuration name or configuration id')
+            
+        if (config_name is not None
+              and config_name != ''):
+            code = self.switch_configurations().ConfigurationCode[config_name].iloc[0]
+        elif config_id is not None:
+            code = self.switch_configurations().ConfigurationCode[:, config_id].iloc[0]
+            
+        # execute the code:
+        exec(code) # this should create a list of switch objects called "Switches"
+        try:
+            if not(isinstance(Switches[0], Switch)):
+                raise RuntimeError('Configuration import failure - Switches variable is not of the right form')
+        except:
+            raise RuntimeError('Configuration import failure - Switches variable not created')
+        # return a sequence object for the accessed Switches object.
+        return Sequence(Switches)
     
     def control_name(self, control_id):
         table = self.logging_controls()
